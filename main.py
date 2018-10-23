@@ -1,64 +1,36 @@
 #!/usr/bin/python3.6
 import argparse
-import tqdm
 import os
-import numpy as np
 import multiprocessing as mp
-import hyperopt as hp
 import tqdm
-import pickle
-
 
 from simulation.env import Environment
 from analysis import analysis
 from parameters import risk_negative, risk_positive, risk_neutral
 
 
-# declare global progress bar
-pbar = tqdm.tqdm(
-    total=100,#risk_positive['t_max'] * risk_positive['n_agents'] * 3,
-    desc="Computing simulations"
-)
+def run(cond):
 
-
-def run(n_reversal):
-
-    risk_positive['t_when_reversal_occurs'] = \
-            np.arange(
-                0,
-                risk_positive['t_max'] + 1,
-                risk_positive['t_max'] // (n_reversal + 1),
-            )[1:-1]
-
-    e = Environment(pbar=pbar, **risk_positive)
+    e = Environment(pbar=pbar, **cond)
     e.run()
-    pbar.update()
-    a = e.run()
-    print(n_reversal, a)
-    return a
 
 
 def run_simulation():
 
-    # cond = risk_positive, risk_negative, risk_neutral
-
-    # with mp.Pool(processes=3) as p:
-    #     for _ in p.imap_unordered(run, cond):
-    #         pass
-    #
-    # pbar.close()
-
-    best = hp.fmin(
-        fn=run,
-        space=hp.hp.quniform('n_reversal', 1, 11),
-        algo=hp.tpe.suggest,
-        max_evals=100
+    # declare progress bar
+    global pbar
+    pbar = tqdm.tqdm(
+        total=risk_positive['t_max'] * risk_positive['n_agents'] * 3,
+        desc="Computing simulations"
     )
 
-    pbar.close()
+    cond = risk_positive, risk_negative, risk_neutral
 
-    print(best)
-    pickle.dump(obj=best, file=open('data/best.p', 'wb'))
+    with mp.Pool(processes=3) as p:
+        for _ in p.imap_unordered(run, cond):
+            pass
+
+    pbar.close()
 
 
 def run_analysis():

@@ -67,6 +67,8 @@ class Environment:
                     if t != self.t_max - 1:
                         agent.learn(choice=choice, t=t, reward=reward)
 
+                    self.pbar.update()
+
                     # self.pbar.update()
 
                 # if reversal occurred at least once
@@ -90,7 +92,7 @@ class Environment:
 
         self.save(data)
 
-        return self.diff_asymmetric_perseveration_score(data=data)
+        # return self.diff_asymmetric_perseveration_score(data=data)
 
     def diff_asymmetric_perseveration_score(self, data):
 
@@ -107,7 +109,7 @@ class Environment:
 
             means[i] = np.mean(new_data[:, i])
 
-        return -(means[0] - means[1])
+        return (means[0] - means[1]) ** -1
 
     def play(self, choice):
 
