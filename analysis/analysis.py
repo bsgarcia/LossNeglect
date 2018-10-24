@@ -69,7 +69,7 @@ def correct_choice_comparison():
 
         data.append(one_cond_data)
 
-    graph.correct_choice_comparison(data, t_when_reversal=t_when_reversal, ylabel='Correct Choice')
+    graph.choice_comparison(data, t_when_reversal=t_when_reversal, ylabel='Correct Choice')
 
 
 def single_choice_comparison():
@@ -103,7 +103,8 @@ def single_choice_comparison():
 
         data.append(one_cond_data)
 
-    graph.correct_choice_comparison(data, t_when_reversal=t_when_reversal, ylabel='Chose option B')
+    graph.choice_comparison(data, t_when_reversal=t_when_reversal,
+        ylabel='Choice = B')
 
 
 def run():

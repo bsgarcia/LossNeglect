@@ -8,9 +8,9 @@ common_params = {
     'n_agents': 100,
 
     # time steps for one session
-    't_max': 1000,
+    't_max': 200,
     'n_sessions': 2,
-    'n_reversals': 2,
+    'n_reversals': 6,
     'n_options': 2,
 
     'cognitive_params': {
