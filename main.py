@@ -21,16 +21,18 @@ pbar = tqdm.tqdm(
 )
 
 
-def run(n_reversal):
+def run(*args):
+
+    n_reversal, t_max = args[0][:]
+
+    risk_positive['t_max'] = int(t_max)
 
     risk_positive['t_when_reversal_occurs'] = \
             np.arange(
                 0,
-                risk_positive['t_max'] + 1,
-                risk_positive['t_max'] // (n_reversal + 1),
+                t_max + 1,
+                t_max // (n_reversal + 1),
             )[1:-1]
-
-    # risk_positive['t_max'] = int(t_max)
 
     e = Environment(pbar=pbar, **risk_positive)
     a = e.run()
@@ -43,7 +45,7 @@ def run_simulation():
 
     best = hp.fmin(
         fn=run,
-        space=hp.hp.quniform('n_reversal', 1, 11, 1),
+        space=[hp.hp.quniform('n_reversal', 1, 8, 1), hp.hp.quniform('t_max', 41, 200, 20)],
         algo=hp.tpe.suggest,
         max_evals=100
     )
