@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python
 import argparse
 import os
 import multiprocessing as mp
@@ -15,14 +15,28 @@ def run(cond):
     e.run()
 
 
-def run_simulation():
+def init_pbar():
 
     # declare progress bar
     global pbar
-    pbar = tqdm.tqdm(
-        total=risk_positive['t_max'] * risk_positive['n_agents'] * 3,
-        desc="Computing simulations"
-    )
+    pbar = {}
+
+    for cond in 'risk_positive', 'risk_negative', 'risk_neutral':
+
+        pbar[cond] = tqdm.tqdm(
+            total=risk_positive['t_max'] * risk_positive['n_agents'],
+            desc=f'Computing condition {cond}'
+        )
+
+
+def close_pbar():
+    for v in pbar.values():
+        v.close()
+
+
+def run_simulation():
+
+    init_pbar()
 
     cond = risk_positive, risk_negative, risk_neutral
 
@@ -30,12 +44,12 @@ def run_simulation():
         for _ in p.imap_unordered(run, cond):
             pass
 
-    pbar.close()
+    close_pbar()
 
 
 def run_analysis():
 
-    tqdm.tqdm.write('Generating graphs...')
+    tqdm.tqdm.write('\nGenerating graphs...')
 
     analysis.run()
 

@@ -65,7 +65,7 @@ class PerseverationQLearningAgent(QLearningAgent):
 
     """
     Basic Qlearning model
-    using a softmax with a 'pi' parameter,
+    using a softmax with a 'phi' parameter,
     that is added to the qvalue of the last choice.
     By this, we incentivize the agent to
     reproduce the last choice he made.
@@ -73,7 +73,7 @@ class PerseverationQLearningAgent(QLearningAgent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.pi = kwargs["pi"]
+        self.phi = kwargs["phi"]
 
     def softmax(self, t):
 
@@ -85,8 +85,8 @@ class PerseverationQLearningAgent(QLearningAgent):
         # else get last choice
         c = self.choices[t - 1]
 
-        # Qvalue for last option chosen (+ pi)
-        q1 = self.beta * self.q[t, c] + self.pi
+        # Qvalue for last option chosen (+ phi)
+        q1 = self.beta * self.q[t, c] + self.phi
         # Qvalue for the other option
         q2 = self.beta * self.q[t, int(not c)]
 

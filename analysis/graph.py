@@ -52,90 +52,113 @@ def reward_model_comparison(data):
     plt.show()
 
 
-def choice_comparison(data, t_when_reversal, ylabel):
+def choice_comparison_line_plot(data,
+                                t_when_reversal,
+                                ylabel,
+                                title,
+                                gs,
+                                fig,
+                                i,
+                                axes,
+                                legend_elements):
 
-    gs1 = gd.GridSpec(ncols=1, nrows=2)
-    plt.figure(figsize=(18, 13))
-
-    cond_labels = 'Risk Positive', 'Risk Negative'#, 'Risk Neutral'
     colors = ['C0', 'C1', 'C2']
 
-    legend_elements = []
-    axes = []
+    for model, label in enumerate(
+            ('QLearning', 'Asymmetric', 'Perseveration')):
 
-    for i, cond in enumerate(data[:-1]):
+        ax = fig.add_subplot(gs[model, 0])
+
+        axes.append(ax)
+
+        # remove right and top framing
+        ax.spines['right'].set_visible(0)
+        ax.spines['top'].set_visible(0)
+
+        # Add reversal lines
+        # ------------------------------------------------------------ #
+        for t, l in zip(t_when_reversal, range(len(t_when_reversal))):
+
+            ax.vlines(
+                x=t,
+                ymin=0.2,
+                ymax=0.8,
+                linestyle="--",
+                linewidth=2,
+                color='gray',
+            )
+
+            if model == 2:
+                pass
+                # ax.set_xticks(sorted(list(ax.get_xticks()) + list(t_when_reversal)))
+        # ------------------------------------------------------------ #
+
+        # Compute data
+        means = [data[model][t][0] for t in range(len(data[model]))]
+        std = [data[model][t][1] for t in range(len(data[model]))]
+
+        ax.plot(means, label=label, color=colors[model])
+
+        # Fill with error
+        ax.fill_between(
+            range(len(means)),
+            [m - err for m, err in zip(means, std)],
+            [m + err for m, err in zip(means, std)],
+            alpha=0.4,
+            color=colors[model]
+        )
+
+        ax.set_ylim(0.0, 0.9)
+
+        if '{}' in ylabel:
+            ax.set_ylabel(ylabel.format(('A', 'B')[i]))
+        else:
+            ax.set_ylabel(ylabel)
+
+        # Customize depending on the plot
+        # ---------------------------------------- #
+
+        if model == 2:
+            ax.set_xlabel('t')
+        else:
+            ax.spines['bottom'].set_visible(0)
+            ax.set_xticks([])
+
+        if i == 0:
+            legend_elements.append(
+                mat.lines.Line2D([0], [0], color=colors[model], label=label)
+            )
+
+        # ---------------------------------------- #
+
+
+def choice_comparison(data, t_when_reversal, ylabel, conds):
+
+    n_cond = len(data)
+    gs1 = gd.GridSpec(ncols=1, nrows=n_cond)
+    fig = plt.figure(figsize=(18, 13))
+
+    cond_labels = [c.replace('_', ' ').capitalize() for c in conds]
+
+    axes = []
+    legend_elements = []
+
+    for i, cond in enumerate(data):
 
         gs2 = gd.GridSpecFromSubplotSpec(nrows=3, ncols=1, subplot_spec=gs1[i, 0])
 
-        for model, label in enumerate(
-                ('QLearning', 'Asymmetric', 'Perseveration')):
+        choice_comparison_line_plot(cond, t_when_reversal, ylabel, cond_labels[i], gs=gs2, fig=fig, i=i, axes=axes, legend_elements=legend_elements)
 
-            ax = plt.subplot(gs2[model, 0])
-
-            axes.append(ax)
-
-            # remove right and top framing
-            ax.spines['right'].set_visible(0)
-            ax.spines['top'].set_visible(0)
-
-            # Add reversal lines
-            # ------------------------------------------------------------ #
-            for t, l in zip(t_when_reversal, range(len(t_when_reversal))):
-
-                ax.vlines(
-                    x=t,
-                    ymin=0.2,
-                    ymax=0.8,
-                    linestyle="--",
-                    linewidth=2,
-                    color='gray',
-                )
-
-                if model == 2:
-                    ax.set_xticks(t_when_reversal)
-            # ------------------------------------------------------------ #
-
-            # Compute data
-            means = [cond[model][t][0] for t in range(len(cond[model]))]
-            std = [cond[model][t][1] for t in range(len(cond[model]))]
-
-            ax.plot(means, label=label, color=colors[model])
-
-            # Fill with error
-            ax.fill_between(
-                range(len(means)),
-                [m - err for m, err in zip(means, std)],
-                [m + err for m, err in zip(means, std)],
-                alpha=0.4,
-                color=colors[model]
-            )
-
-            ax.set_ylim(0.1, 0.9)
-            ax.set_ylabel(ylabel)
-
-            # Customize depending on the plot
-            # ---------------------------------------- #
-
-            if model == 2:
-                ax.set_xlabel('t')
-            else:
-                ax.spines['bottom'].set_visible(0)
-                ax.set_xticks([])
-
-            if i == 0:
-                legend_elements.append(
-                    mat.lines.Line2D([0], [0], color=colors[model], label=label)
-                )
-
-            # ---------------------------------------- #
+    n_cond = len(data)
+    n_axes = len(axes)
 
     legend_elements += [
         mat.lines.Line2D([0], [0], color='gray', linestyle="dashed", label="Reversal Event")
     ]
 
-    for i in (0, 3):
-        axes[i].set_title(cond_labels[i - 2])
-        axes[i].legend(handles=legend_elements, bbox_to_anchor=(1.09, 1.05), frameon=True)
+    for i, idx_ax in zip(range(n_cond), list(range(n_axes))[::n_axes//n_cond]):
+        axes[idx_ax].set_title(cond_labels[i])
+        axes[idx_ax].legend(handles=legend_elements, bbox_to_anchor=(1.09, 1.05), frameon=True)
 
     plt.show()
 

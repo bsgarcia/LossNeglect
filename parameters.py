@@ -8,9 +8,9 @@ common_params = {
     'n_agents': 100,
 
     # time steps for one session
-    't_max': 200,
+    't_max': 100,
     'n_sessions': 2,
-    'n_reversals': 6,
+    'n_reversals': 1,
     'n_options': 2,
 
     'cognitive_params': {
@@ -29,7 +29,7 @@ common_params = {
         'PerseverationQLearningAgent': {
             'alpha': 0.7,
             'beta': 3,
-            'pi': 1.5,
+            'phi': 2.,
         },
     }
 }

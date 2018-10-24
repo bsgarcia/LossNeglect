@@ -42,7 +42,7 @@ class Environment:
                 agent = model(
                     alpha=self.cognitive_params[model.__name__].get('alpha'),
                     beta=self.cognitive_params[model.__name__].get('beta'),
-                    pi=self.cognitive_params[model.__name__].get('pi'),
+                    phi=self.cognitive_params[model.__name__].get('phi'),
                     t_max=self.t_max,
                     n_options=self.n_options,
                 )
@@ -67,9 +67,7 @@ class Environment:
                     if t != self.t_max - 1:
                         agent.learn(choice=choice, t=t, reward=reward)
 
-                    self.pbar.update()
-
-                    # self.pbar.update()
+                    self.pbar[self.condition].update()
 
                 # if reversal occurred at least once
                 # we reinitialize probs and rewards
@@ -88,28 +86,11 @@ class Environment:
                 }
             }
 
+            self.pbar[self.condition].close()
+
             data.update(d)
 
         self.save(data)
-
-        # return self.diff_asymmetric_perseveration_score(data=data)
-
-    def diff_asymmetric_perseveration_score(self, data):
-
-        models = AsymmetricQLearningAgent.__name__, PerseverationQLearningAgent.__name__
-
-        new_data = np.zeros((self.n_agents, len(models)))
-        means = np.zeros(len(models))
-
-        for i, model in enumerate(models):
-
-            for a in range(self.n_agents):
-
-                new_data[a, i] = np.sum(data[model]['rewards'][a, :] == 1) / self.t_max
-
-            means[i] = np.mean(new_data[:, i])
-
-        return (means[0] - means[1]) ** -1
 
     def play(self, choice):
 
