@@ -107,7 +107,7 @@ class Environment:
 
             means[i] = np.mean(new_data[:, i])
 
-        return -(means[0] - means[1]) * (np.std(new_data[:, 1]) * 10)
+        return (-(means[0] - means[1]) ** -1) * np.std(new_data[:, 1])
 
     def play(self, choice):
 

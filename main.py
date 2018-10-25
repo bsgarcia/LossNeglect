@@ -47,7 +47,7 @@ def run_simulation():
 
     best = hp.fmin(
         fn=run,
-        space=[hp.hp.quniform('n_reversal', 1, 8, 1), hp.hp.quniform('t_max', 60, 160, 10)],
+        space=[hp.hp.quniform('n_reversal', 1, 1, 1), hp.hp.quniform('t_max', 60, 160, 90)],
         algo=hp.rand.suggest,
         max_evals=100
     )
