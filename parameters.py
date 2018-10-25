@@ -10,7 +10,7 @@ common_params = {
     # time steps for one session
     't_max': 60,
     'n_sessions': 2,
-    'n_reversals': 6,
+    'n_reversals': 1,
     'n_options': 2,
 
     'cognitive_params': {
