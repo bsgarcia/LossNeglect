@@ -8,7 +8,7 @@ common_params = {
     'n_agents': 30,
 
     # time steps for one session
-    't_max': 60,
+    't_max': 150,
     'n_sessions': 2,
     'n_reversals': 1,
     'n_options': 2,
