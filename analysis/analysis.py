@@ -12,6 +12,7 @@ def reward_model_comparison():
 
     # size = (3 conditions, 3 models, 2 values (mean and std))
     data = []
+    scatter = []
 
     for cond in ('risk_positive', 'risk_negative', 'risk_neutral'):
 
@@ -32,10 +33,11 @@ def reward_model_comparison():
 
             # add mean and std for a model in one condition
             one_cond_data.append([np.mean(new_data), np.std(new_data)])
+            scatter.append(list(new_data))
 
         data.append(one_cond_data)
 
-    graph.reward_model_comparison(data)
+    graph.reward_model_comparison(data, scatter)
 
 
 def correct_choice_comparison():
@@ -222,8 +224,8 @@ def p_of_winning_taking_the_best_option():
 
 def run():
 
-    p_of_winning_a_and_b()
-    p_of_winning_taking_the_best_option()
+    # p_of_winning_a_and_b()
+    # p_of_winning_taking_the_best_option()
     single_choice_comparison()
     correct_choice_comparison()
     reward_model_comparison()

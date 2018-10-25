@@ -5,10 +5,10 @@ import numpy as np
 common_params = {
 
     # N of agents for each model
-    'n_agents': 100,
+    'n_agents': 30,
 
     # time steps for one session
-    't_max': 100,
+    't_max': 40,
     'n_sessions': 2,
     'n_reversals': 1,
     'n_options': 2,
