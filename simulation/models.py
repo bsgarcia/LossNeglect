@@ -73,7 +73,7 @@ class PerseverationQLearningAgent(QLearningAgent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.pi = kwargs["pi"]
+        self.pi = kwargs["phi"]
 
     def softmax(self, t):
 

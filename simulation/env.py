@@ -42,7 +42,7 @@ class Environment:
                 agent = model(
                     alpha=self.cognitive_params[model.__name__].get('alpha'),
                     beta=self.cognitive_params[model.__name__].get('beta'),
-                    pi=self.cognitive_params[model.__name__].get('pi'),
+                    pi=self.cognitive_params[model.__name__].get('phi'),
                     t_max=self.t_max,
                     n_options=self.n_options,
                 )

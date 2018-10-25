@@ -5,7 +5,7 @@ import numpy as np
 common_params = {
 
     # N of agents for each model
-    'n_agents': 100,
+    'n_agents': 30,
 
     # time steps for one session
     't_max': 60,
@@ -29,7 +29,7 @@ common_params = {
         'PerseverationQLearningAgent': {
             'alpha': 0.7,
             'beta': 3,
-            'pi': 1.5,
+            'phi': 1.5,
         },
     }
 }
