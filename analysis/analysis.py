@@ -108,8 +108,12 @@ def single_choice_comparison():
 
         data.append(one_cond_data)
 
-    graph.choice_comparison(data, t_when_reversal=t_when_reversal,
-        ylabel='Choice = B', conds=conds)
+    graph.choice_comparison(
+        data=data,
+        t_when_reversal=t_when_reversal,
+        ylabel='Choice = B',
+        conds=conds
+    )
 
 
 def p_of_winning_a_and_b():
@@ -163,8 +167,12 @@ def p_of_winning_a_and_b():
 
         data.append(one_cond_data)
 
-    graph.choice_comparison(data, t_when_reversal=t_when_reversal,
-        ylabel='$p(R^t_{} = 1)$', conds=conds)
+    graph.choice_comparison(
+        data=data,
+        t_when_reversal=t_when_reversal,
+        ylabel='$p(R^t_{} = 1)$',
+        conds=conds
+    )
 
 
 def p_of_winning_taking_the_best_option():
@@ -218,17 +226,21 @@ def p_of_winning_taking_the_best_option():
 
         data.append(one_cond_data)
 
-    graph.choice_comparison(data, t_when_reversal=t_when_reversal,
-        ylabel='$p(R = 1)$', conds=conds)
+    graph.choice_comparison(
+        data=data,
+        t_when_reversal=t_when_reversal,
+        ylabel='$p(R = 1)$',
+        conds=conds
+    )
 
 
 def run():
 
     # p_of_winning_a_and_b()
     # p_of_winning_taking_the_best_option()
+    reward_model_comparison()
     single_choice_comparison()
     correct_choice_comparison()
-    reward_model_comparison()
 
 
 if __name__ == '__main__':

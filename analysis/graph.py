@@ -12,6 +12,8 @@ def reward_model_comparison(data, data_scatter):
     # get x of bars for scatters
     bars = []
 
+    plt.style.use('default')
+
     # params
     ind = np.arange(len(data))
     width = 0.2
@@ -47,8 +49,9 @@ def reward_model_comparison(data, data_scatter):
         # mean is first and std is second
         means = [data[cond][i][0] for cond in ind]
         std = [data[cond][i][1] for cond in ind]
-        rects = ax.bar(ind + i * width, means, width, yerr=std, label=label, alpha=opacity,
-               error_kw=dict(ecolor='black', capsize=4, capthick=1.5, alpha=0.8, linewidth=1.5)
+
+        rects = ax.bar(ind + i * width, means, width, yerr=std, label=label, alpha=0.6, zorder=0,
+               error_kw=dict(ecolor='black', capsize=4, capthick=1.5, alpha=1, linewidth=1.5, zorder=2)
         )
 
         bars.append([rect.get_x() for rect in rects])
@@ -59,7 +62,7 @@ def reward_model_comparison(data, data_scatter):
     idx = iter([0, ] * 3 + [1, ] * 3 + [2, ] * 3)
     for (i, d), j in zip(enumerate(data_scatter), list(range(3)) * 3):
         x = bars[j][next(idx)]
-        ax.scatter(np.repeat(x + width/2, len(d)), d, color=f'C{j}', alpha=0.5)
+        ax.scatter(np.repeat(x + width/2, len(d)), d, color=f'C{j}', alpha=0.5, zorder=1)
 
     ax.legend()
     plt.show()
