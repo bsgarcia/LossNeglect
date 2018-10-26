@@ -51,7 +51,7 @@ def run_simulation():
         fn=run,
         space=[hp.hp.quniform('n_reversal', 1, 8, 1), hp.hp.quniform('t_max', 60, 160, 10)],
         algo=hp.tpe.suggest,
-        max_evals=500
+        max_evals=10
     )
 
     pbar.close()
