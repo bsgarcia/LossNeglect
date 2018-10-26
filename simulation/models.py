@@ -86,7 +86,7 @@ class PerseverationQLearningAgent(QLearningAgent):
         c = self.choices[t - 1]
 
         # Qvalue for last option chosen (+ pi)
-        q1 = self.beta * (self.q[t, c] + self.phi)
+        q1 = self.beta * self.q[t, c] + self.phi
         # Qvalue for the other option
         q2 = self.beta * self.q[t, int(not c)]
 
