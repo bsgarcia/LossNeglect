@@ -16,7 +16,7 @@ from parameters import risk_negative, risk_positive, risk_neutral
 
 # declare global progress bar
 pbar = tqdm.tqdm(
-    total=100,#risk_positive['t_max'] * risk_positive['n_agents'] * 3,
+    total=500,#risk_positive['t_max'] * risk_positive['n_agents'] * 3,
     desc="Hyperopt"
 )
 
@@ -38,7 +38,9 @@ def run(*args):
     a = e.run()
     pbar.update()
 
-    print(a)
+    print('tmax:', t_max)
+    print('n_reversals:', n_reversal)
+    print('score:', a)
 
     return a
 
@@ -47,9 +49,9 @@ def run_simulation():
 
     best = hp.fmin(
         fn=run,
-        space=[hp.hp.quniform('n_reversal', 1, 1, 1), hp.hp.quniform('t_max', 60, 160, 90)],
-        algo=hp.rand.suggest,
-        max_evals=100
+        space=[hp.hp.quniform('n_reversal', 1, 8, 1), hp.hp.quniform('t_max', 60, 160, 10)],
+        algo=hp.tpe.suggest,
+        max_evals=500
     )
 
     pbar.close()
