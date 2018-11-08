@@ -7,7 +7,7 @@ import matplotlib as mat
 plt.style.use('seaborn-dark')
 
 
-def reward_model_comparison(data, data_scatter):
+def bar_plot_model_comparison(data, data_scatter, ylabel):
 
     # get x of bars for scatters
     bars = []
@@ -19,7 +19,6 @@ def reward_model_comparison(data, data_scatter):
     width = 0.2
     opacity = 0.8
     xlabels = 'Risk Positive', 'Risk Negative', 'Risk Neutral'
-    ylabel = 'Rewards'
 
     plt.figure(figsize=(12, 8))
     ax = plt.subplot()
@@ -50,19 +49,23 @@ def reward_model_comparison(data, data_scatter):
         means = [data[cond][i][0] for cond in ind]
         std = [data[cond][i][1] for cond in ind]
 
-        rects = ax.bar(ind + i * width, means, width, yerr=std, label=label, alpha=0.6, zorder=0,
-               error_kw=dict(ecolor='black', capsize=4, capthick=1.5, alpha=1, linewidth=1.5, zorder=2)
-        )
+        if True in [j > 0 for j in means]:
+            rects = ax.bar(ind + i * width, means, width, yerr=std, label=label, alpha=0.6, zorder=0,
+                   error_kw=dict(ecolor='black', capsize=4, capthick=1.5, alpha=1, linewidth=1.5, zorder=2)
+            )
 
         bars.append([rect.get_x() for rect in rects])
-    #
-    # bars = np.array(bars).flatten()
-    #
 
+    # Add scatter points
+    # in order to have an idea of the distribution
     idx = iter([0, ] * 3 + [1, ] * 3 + [2, ] * 3)
     for (i, d), j in zip(enumerate(data_scatter), list(range(3)) * 3):
-        x = bars[j][next(idx)]
-        ax.scatter(np.repeat(x + width/2, len(d)), d, color=f'C{j}', alpha=0.5, zorder=1)
+
+        if True in [j > 0 for j in d]:
+
+            x = bars[j][next(idx)]
+            x_randomized = [y + (width * np.random.randint(1, 10)/10) for y in np.repeat(x, len(d))]
+            ax.scatter(x_randomized, d, color=f'C{j}', alpha=0.5, zorder=1)
 
     ax.legend()
     plt.show()
@@ -78,10 +81,12 @@ def choice_comparison_line_plot(data,
                                 axes,
                                 legend_elements):
 
+    plt.style.use('seaborn-dark')
+
     colors = ['C0', 'C1', 'C2']
 
     for model, label in enumerate(
-            ('QLearning', 'Asymmetric', 'Perseveration')):
+            ('QLearning', )):#'Asymmetric', 'Perseveration')):
 
         ax = fig.add_subplot(gs[model, 0])
 
@@ -90,6 +95,7 @@ def choice_comparison_line_plot(data,
         # remove right and top framing
         ax.spines['right'].set_visible(0)
         ax.spines['top'].set_visible(0)
+        ax.grid(1)
 
         # Add reversal lines
         # ------------------------------------------------------------ #
@@ -97,8 +103,8 @@ def choice_comparison_line_plot(data,
 
             ax.vlines(
                 x=t,
-                ymin=0.2,
-                ymax=0.8,
+                ymin=0.15,
+                ymax=0.85,
                 linestyle="--",
                 linewidth=2,
                 color='gray',
@@ -148,6 +154,52 @@ def choice_comparison_line_plot(data,
         # ---------------------------------------- #
 
 
+def choice_each_agent_plot(
+        data,
+        t_when_reversal,
+        ylabel,
+        title,
+        gs,
+        fig,
+        i
+):
+
+    plt.style.use('seaborn')
+
+    ax = fig.add_subplot(gs)
+
+    # remove right and top framing
+    ax.spines['right'].set_visible(0)
+    ax.spines['top'].set_visible(0)
+    ax.spines['bottom'].set_visible(0)
+    ax.grid(0)
+
+    # ax.grid(1)
+
+    # Add reversal lines
+    # ------------------------------------------------------------ #
+    for t, l in zip(t_when_reversal, range(len(t_when_reversal))):
+
+        ax.vlines(
+            x=t,
+            ymin=0,
+            ymax=1,
+            linestyle="--",
+            linewidth=1,
+            color='black',
+        )
+    # ------------------------------------------------------------ #
+
+    # Compute data
+    ax.scatter(range(len(data)), data, c=['C1' if x else 'C2' for x in data], s=9, marker='s')
+
+    ax.set_ylim(-0.1, 1.1)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    ax.set_ylabel(i)
+
+
 def choice_comparison(data, t_when_reversal, ylabel, conds):
 
     n_cond = len(data)
@@ -163,7 +215,10 @@ def choice_comparison(data, t_when_reversal, ylabel, conds):
 
         gs2 = gd.GridSpecFromSubplotSpec(nrows=3, ncols=1, subplot_spec=gs1[i, 0])
 
-        choice_comparison_line_plot(cond, t_when_reversal, ylabel, cond_labels[i], gs=gs2, fig=fig, i=i, axes=axes, legend_elements=legend_elements)
+        choice_comparison_line_plot(
+            cond, t_when_reversal, ylabel, cond_labels[i],
+            gs=gs2, fig=fig, i=i, axes=axes, legend_elements=legend_elements
+        )
 
     n_cond = len(data)
     n_axes = len(axes)
@@ -175,6 +230,20 @@ def choice_comparison(data, t_when_reversal, ylabel, conds):
     for i, idx_ax in zip(range(n_cond), list(range(n_axes))[::n_axes//n_cond]):
         axes[idx_ax].set_title(cond_labels[i])
         axes[idx_ax].legend(handles=legend_elements, bbox_to_anchor=(1.09, 1.05), frameon=True)
+
+    plt.show()
+
+
+def choice_each_agent(data, t_when_reversal, ylabel, cond, n_rows):
+
+    gs1 = gd.GridSpec(ncols=1, nrows=n_rows)
+    fig = plt.figure(figsize=(18, 13))
+
+    cond_label = cond.replace('_', ' ').capitalize()
+
+    for i, cond in enumerate(data):
+
+        choice_each_agent_plot(cond, t_when_reversal, ylabel, cond_label, gs=gs1[i], fig=fig, i=i)
 
     plt.show()
 

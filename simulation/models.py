@@ -15,6 +15,7 @@ class QLearningAgent:
 
         self.q = np.zeros((t_max, n_options), dtype=float)
         self.pe = np.zeros((t_max, n_options), dtype=float)
+        self.p_softmax = np.zeros((t_max, n_options), dtype=float)
         self.choices = np.zeros(t_max, dtype=int)
         self.rewards = np.zeros(t_max, dtype=int)
 
@@ -23,6 +24,7 @@ class QLearningAgent:
         self.choices[t] = choice
         self.rewards[t] = reward
         self.pe[t] = reward - self.q[t, choice]
+        self.p_softmax[t, :] = self.softmax(t)
 
     def choice(self, t):
         return np.random.choice([0, 1], p=self.softmax(t))
@@ -39,7 +41,8 @@ class QLearningAgent:
             'choices': self.choices,
             'rewards': self.rewards,
             'prediction_error': self.pe,
-            'q_values': self.q
+            'q_values': self.q,
+            'p_softmax': self.p_softmax
         }
 
 

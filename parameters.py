@@ -7,29 +7,31 @@ common_params = {
     # N of agents for each model
     'n_agents': 30,
 
+
     # time steps for one session
-    't_max': 150,
-    'n_sessions': 2,
-    'n_reversals': 3,
+    't_max': 160,
+    # 'n_sessions': 2,
+    'n_reversals': 0,
     'n_options': 2,
 
     'cognitive_params': {
 
         'QLearningAgent': {
-            'alpha': 0.7,
-            'beta': 3,
+            'alpha': 0.45,
+            'beta': 100,
+
         },
 
         'AsymmetricQLearningAgent': {
             # alpha for [losses, gains]
-            'alpha': np.array([0.6, 0.8]),
-            'beta': 3,
+            'alpha': np.array([0.4, 0.6]),
+            'beta': 100,
         },
 
         'PerseverationQLearningAgent': {
             'alpha': 0.7,
-            'beta': 3,
-            'phi': 1.5,
+            'beta': 100,
+            'phi': 0.8,
         },
     }
 }

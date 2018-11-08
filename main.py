@@ -9,12 +9,6 @@ from analysis import analysis
 from parameters import risk_negative, risk_positive, risk_neutral
 
 
-def run(cond):
-
-    e = Environment(pbar=pbar, **cond)
-    e.run()
-
-
 def init_pbar():
 
     # declare progress bar
@@ -32,6 +26,12 @@ def init_pbar():
 def close_pbar():
     for v in pbar.values():
         v.close()
+
+
+def run(cond):
+
+    e = Environment(pbar=pbar, **cond)
+    e.run()
 
 
 def run_simulation():
@@ -76,9 +76,3 @@ if __name__ == '__main__':
 
     if is_running_in_pycharm:
         run_analysis()
-
-
-
-
-
-

@@ -36,6 +36,8 @@ class Environment:
             choices = np.zeros((self.n_agents, self.t_max), dtype=int)
             rewards = np.zeros((self.n_agents, self.t_max), dtype=int)
             correct_choices = np.zeros((self.n_agents, self.t_max), dtype=int)
+            risky_choice = np.zeros((self.n_agents, self.t_max), dtype=int)
+            p_softmax = np.zeros((self.n_agents, self.t_max, self.n_options), dtype=float)
 
             for n in range(self.n_agents):
 
@@ -60,6 +62,8 @@ class Environment:
                         sum(self.rewards[choice] * self.p[choice]) > \
                         sum(self.rewards[int(not choice)] * self.p[int(not choice)])
 
+                    risky_choice[n, t] = -1 in self.rewards[choice]
+
                     reward = self.play(choice)
 
                     agent.save(choice=choice, t=t, reward=reward)
@@ -72,17 +76,20 @@ class Environment:
                 # if reversal occurred at least once
                 # we reinitialize probs and rewards
                 if len(self.t_when_reversal_occurs):
-                    self.p = self.params['p']
-                    self.rewards = self.params['rewards']
+                    self.p = np.copy(self.params['p'])
+                    self.rewards = np.copy(self.params['rewards'])
 
                 choices[n, :] = agent.memory['choices']
                 rewards[n, :] = agent.memory['rewards']
+                p_softmax[n, :, :] = agent.memory['p_softmax']
 
             d = {
                 model.__name__: {
                     'choices': choices,
                     'rewards': rewards,
-                    'correct_choices': correct_choices
+                    'correct_choices': correct_choices,
+                    'risky_choice': risky_choice,
+                    'p_softmax': p_softmax
                 }
             }
 
