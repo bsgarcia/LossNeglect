@@ -7,6 +7,7 @@ import multiprocessing as mp
 import hyperopt as hp
 import tqdm
 import pickle
+import scipy
 
 
 from simulation.env import Environment

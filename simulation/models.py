@@ -14,6 +14,7 @@ class QLearningAgent:
         self.beta = beta
 
         self.q = np.zeros((t_max, n_options), dtype=float)
+
         self.pe = np.zeros((t_max, n_options), dtype=float)
         self.choices = np.zeros(t_max, dtype=int)
         self.rewards = np.zeros(t_max, dtype=int)
@@ -94,6 +95,18 @@ class PerseverationQLearningAgent(QLearningAgent):
         ordered = np.array([q1, q2]) if c == 0 else np.array([q2, q1])
 
         return np.exp(ordered) / np.sum(np.exp(ordered))
+
+
+class PriorQLearningAgent(QLearningAgent):
+
+    """
+    Basic qlearning with initially biased qvalues
+
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.q = kwargs['q']
 
 
 if __name__ == '__main__':

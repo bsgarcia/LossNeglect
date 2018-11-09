@@ -2,7 +2,10 @@
 import numpy as np
 import pickle
 
-from simulation.models import QLearningAgent, AsymmetricQLearningAgent, PerseverationQLearningAgent
+from simulation.models import (QLearningAgent,
+                               AsymmetricQLearningAgent,
+                               PerseverationQLearningAgent,
+                               PriorQLearningAgent)
 
 
 class Environment:
@@ -31,18 +34,25 @@ class Environment:
 
         data = {}
 
-        for model in (QLearningAgent, AsymmetricQLearningAgent, PerseverationQLearningAgent):
+        for model in (QLearningAgent,
+                      AsymmetricQLearningAgent,
+                      PerseverationQLearningAgent,
+                      PriorQLearningAgent):
 
             choices = np.zeros((self.n_agents, self.t_max), dtype=int)
             rewards = np.zeros((self.n_agents, self.t_max), dtype=int)
             correct_choices = np.zeros((self.n_agents, self.t_max), dtype=int)
+            # p_softmax = np.
 
             for n in range(self.n_agents):
 
+                name = model.__name__
+
                 agent = model(
-                    alpha=self.cognitive_params[model.__name__].get('alpha'),
-                    beta=self.cognitive_params[model.__name__].get('beta'),
-                    phi=self.cognitive_params[model.__name__].get('phi'),
+                    alpha=self.cognitive_params[name].get('alpha'),
+                    beta=self.cognitive_params[name].get('beta'),
+                    phi=self.cognitive_params[name].get('phi'),
+                    q=self.cognitive_params[name].get('q'),
                     t_max=self.t_max,
                     n_options=self.n_options,
                 )
