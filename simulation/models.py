@@ -11,6 +11,7 @@ class QLearningAgent:
     def __init__(self, alpha, beta, t_max, n_options, **kwargs):
 
         self.alpha = alpha
+
         self.beta = beta
 
         self.q = np.zeros((t_max, n_options), dtype=float)
@@ -19,20 +20,28 @@ class QLearningAgent:
         self.choices = np.zeros(t_max, dtype=int)
         self.rewards = np.zeros(t_max, dtype=int)
 
+        self.p_softmax = np.zeros((t_max, n_options), dtype=float)
+
     def save(self, choice, t, reward):
 
         self.choices[t] = choice
         self.rewards[t] = reward
-        self.pe[t] = reward - self.q[t, choice]
+        self.pe[t, choice] = reward - self.q[t, choice]
+
+        self.p_softmax[t, :] = self.softmax(t)
 
     def choice(self, t):
         return np.random.choice([0, 1], p=self.softmax(t))
 
-    def learn(self, choice, t, reward):
+    def learn(self, choice, t):
         self.q[t + 1, choice] = self.q[t, choice] + self.alpha * self.pe[t, choice]
 
     def softmax(self, t):
-        return np.exp(self.beta * self.q[t, :]) / np.sum(np.exp(self.beta * self.q[t, :]))
+        return np.exp(
+            self.beta * self.q[t, :]
+        ) / np.sum(np.exp(
+            self.beta * self.q[t, :]
+        ))
 
     @property
     def memory(self):
@@ -40,7 +49,8 @@ class QLearningAgent:
             'choices': self.choices,
             'rewards': self.rewards,
             'prediction_error': self.pe,
-            'q_values': self.q
+            'q_values': self.q,
+            'p_softmax': self.p_softmax,
         }
 
 
@@ -57,7 +67,7 @@ class AsymmetricQLearningAgent(QLearningAgent):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def learn(self, choice, t, reward):
+    def learn(self, choice, t):
         self.q[t + 1, choice] = \
             self.q[t, choice] + self.alpha[int(self.pe[t, choice] > 0)] * self.pe[t, choice]
 
@@ -86,7 +96,7 @@ class PerseverationQLearningAgent(QLearningAgent):
         # else get last choice
         c = self.choices[t - 1]
 
-        # Qvalue for last option chosen (+ pi)
+        # Qvalue for last option chosen (+ phi)
         q1 = self.beta * self.q[t, c] + self.phi
         # Qvalue for the other option
         q2 = self.beta * self.q[t, int(not c)]
@@ -106,7 +116,7 @@ class PriorQLearningAgent(QLearningAgent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.q = kwargs['q']
+        self.q[0, :] = kwargs['q']
 
 
 if __name__ == '__main__':
