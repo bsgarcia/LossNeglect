@@ -57,25 +57,25 @@ params = {
 
 cond = [
     {
-        'condition': '75_25',
-        # rewards : A - > [loose, win] , B -> [loose, win]
-        'rewards': np.array([[-1, 1], [-1, 1]]),
-
-        # probabilities : A - > [ p of losing, p of winning] , B -> [p of losing, p of winning]
-        'p': np.array([[0.25, 0.75], [0.5, 0.5]]),
-    },
-    {
         'condition': '25_25',
         # rewards : A - > [loose, win] , B -> [loose, win]
-        'rewards': np.array([[-1, 1], [-1, 1]]),
+        'rewards': np.array([[0, 1], [0, 1]]),
 
         # probabilities : A - > [ p of losing, p of winning] , B -> [p of losing, p of winning]
         'p': np.array([[0.75, 0.25], [0.75, 0.25]]),
     },
     {
+        'condition': '75_25',
+        # rewards : A - > [loose, win] , B -> [loose, win]
+        'rewards': np.array([[0, 1], [0, 1]]),
+
+        # probabilities : A - > [ p of losing, p of winning] , B -> [p of losing, p of winning]
+        'p': np.array([[0.25, 0.75], [0.5, 0.5]]),
+    },
+    {
         'condition': '25_75',
         # rewards : A - > [loose, win] , B -> [loose, win]
-        'rewards': np.array([[-1, 1], [-1, 1]]),
+        'rewards': np.array([[0, 1], [0, 1]]),
 
         # probabilities : A - > [ p of losing, p of winning] , B -> [p of losing, p of winning]
         'p': np.array([[0.75, 0.25], [0.25, 0.75]]),
@@ -83,7 +83,7 @@ cond = [
     {
         'condition': '75_75',
         # rewards : A - > [loose, win] , B -> [loose, win]
-        'rewards': np.array([[-1, 1], [-1, 1]]),
+        'rewards': np.array([[0, 1], [0, 1]]),
 
         # probabilities : A - > [ p of losing, p of winning] , B -> [p of losing, p of winning]
         'p': np.array([[0.25, 0.75], [0.25, 0.75]]),

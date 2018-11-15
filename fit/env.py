@@ -1,6 +1,7 @@
 #!/usr/bin/python3.6
 import numpy as np
 import pickle
+import tqdm
 
 
 class Environment:
@@ -20,9 +21,11 @@ class Environment:
 
         self.condition = kwargs.get('condition')
         self.n_options = kwargs.get('n_options')
-        self.rewards = kwargs.get('rewards')
+
         self.t_when_reversal_occurs = kwargs.get('t_when_reversal_occurs')
-        self.p = kwargs.get('p')
+        self.p = None
+        self.rewards = None
+        self.conds = kwargs.get('conds')
 
     def run(self):
 
@@ -37,12 +40,15 @@ class Environment:
             n_options=self.n_options,
         )
 
-        # mapping column 0 to choice variable
+        # mapping column 6 to choice variable
         col = 6
 
         values = np.zeros(self.t_max, dtype=float)
 
         for t in range(self.t_max):
+
+            self.p = self.conds[t]['p'].copy()
+            self.rewards = self.conds[t]['rewards'].copy()
 
             choice = agent.choice(t)
             reward = self.play(choice)

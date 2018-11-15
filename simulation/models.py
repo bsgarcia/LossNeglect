@@ -22,6 +22,16 @@ class QLearningAgent:
 
         self.p_softmax = np.zeros((t_max, n_options), dtype=float)
 
+    @property
+    def memory(self):
+        return {
+            'choices': self.choices,
+            'rewards': self.rewards,
+            'prediction_error': self.pe,
+            'q_values': self.q,
+            'p_softmax': self.p_softmax,
+        }
+
     def save(self, choice, t, reward):
 
         self.choices[t] = choice
@@ -42,16 +52,6 @@ class QLearningAgent:
         ) / np.sum(np.exp(
             self.beta * self.q[t, :]
         ))
-
-    @property
-    def memory(self):
-        return {
-            'choices': self.choices,
-            'rewards': self.rewards,
-            'prediction_error': self.pe,
-            'q_values': self.q,
-            'p_softmax': self.p_softmax,
-        }
 
 
 class AsymmetricQLearningAgent(QLearningAgent):
