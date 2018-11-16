@@ -399,12 +399,12 @@ def choice_each_agent():
 
 def run():
 
-    objective_p_of_winning_a_and_b()
+    # objective_p_of_winning_a_and_b()
     # p_of_winning_taking_the_best_option()
     # single_choice_curve_plot_comparison()
     # correct_choice_curve_plot_comparison()
-    # correct_choice_bar_plot_model_comparison()
-    softmax_p_of_choosing_a_and_b()
+    correct_choice_bar_plot_model_comparison()
+    # softmax_p_of_choosing_a_and_b()
     # reward_bar_plot_model_comparison()
     # risky_choice()
 
