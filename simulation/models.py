@@ -1,5 +1,8 @@
 #!/usr/bin/python3.6
 import numpy as np
+import warnings
+
+warnings.filterwarnings('error')
 
 
 class QLearningAgent:
@@ -47,10 +50,11 @@ class QLearningAgent:
         self.q[t + 1, choice] = self.q[t, choice] + self.alpha * self.pe[t, choice]
 
     def softmax(self, t):
+        m = max(self.q[t, :] * self.beta)
         return np.exp(
-            self.beta * self.q[t, :]
+            self.beta * self.q[t, :] - m
         ) / np.sum(np.exp(
-            self.beta * self.q[t, :]
+            self.beta * self.q[t, :] - m
         ))
 
 
@@ -96,10 +100,12 @@ class PerseverationQLearningAgent(QLearningAgent):
         # else get last choice
         c = self.choices[t - 1]
 
+        m = max(self.beta * self.q[t, :])
+
         # Qvalue for last option chosen (+ phi)
-        q1 = self.beta * self.q[t, c] + self.phi
+        q1 = self.beta * self.q[t, c] + self.phi - m
         # Qvalue for the other option
-        q2 = self.beta * self.q[t, int(not c)]
+        q2 = self.beta * self.q[t, int(not c)] - m
 
         # sort depending on value of last choice
         ordered = np.array([q1, q2]) if c == 0 else np.array([q2, q1])
@@ -117,6 +123,14 @@ class PriorQLearningAgent(QLearningAgent):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.q[0, :] = kwargs['q']
+
+
+class FullQLearningAgent(
+    PriorQLearningAgent,
+    PerseverationQLearningAgent,
+    AsymmetricQLearningAgent,
+):
+    pass
 
 
 if __name__ == '__main__':

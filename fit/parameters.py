@@ -17,15 +17,15 @@ params = {
     'cognitive_params': {
 
         'QLearningAgent': {
-            'alpha': 0.45,
-            'beta': 100,
+            'alpha': 0,
+            'beta': 0,
 
         },
 
         'AsymmetricQLearningAgent': {
             # alpha for [losses, gains]
-            'alpha': np.array([0.4, 0.6]),
-            'beta': 100,
+            'alpha': np.array([0, 0]),
+            'beta': 0,
         },
 
         'PerseverationQLearningAgent': {
@@ -35,9 +35,16 @@ params = {
         },
 
         'PriorQLearningAgent': {
-            'alpha': 0.7,
-            'beta': 100,
-            'q': np.array([-0.5, 0.5])
+            'alpha': 0,
+            'beta': 0,
+            'q': np.array([0, 0])
+        },
+
+        'FullQLearningAgent': {
+            'alpha': np.array([0, 0]),
+            'beta': 0,
+            'phi': 0,
+            'q': np.array([0, 0])
         }
     }
 }
@@ -59,7 +66,7 @@ cond = [
     {
         'condition': '25_25',
         # rewards : A - > [loose, win] , B -> [loose, win]
-        'rewards': np.array([[0, 1], [0, 1]]),
+        'rewards': np.array([[-1, 1], [-1, 1]]),
 
         # probabilities : A - > [ p of losing, p of winning] , B -> [p of losing, p of winning]
         'p': np.array([[0.75, 0.25], [0.75, 0.25]]),
@@ -67,15 +74,15 @@ cond = [
     {
         'condition': '75_25',
         # rewards : A - > [loose, win] , B -> [loose, win]
-        'rewards': np.array([[0, 1], [0, 1]]),
+        'rewards': np.array([[-1, 1], [-1, 1]]),
 
         # probabilities : A - > [ p of losing, p of winning] , B -> [p of losing, p of winning]
-        'p': np.array([[0.25, 0.75], [0.5, 0.5]]),
+        'p': np.array([[0.25, 0.75], [0.75, 0.25]]),
     },
     {
         'condition': '25_75',
         # rewards : A - > [loose, win] , B -> [loose, win]
-        'rewards': np.array([[0, 1], [0, 1]]),
+        'rewards': np.array([[-1, 1], [-1, 1]]),
 
         # probabilities : A - > [ p of losing, p of winning] , B -> [p of losing, p of winning]
         'p': np.array([[0.75, 0.25], [0.25, 0.75]]),
@@ -83,7 +90,7 @@ cond = [
     {
         'condition': '75_75',
         # rewards : A - > [loose, win] , B -> [loose, win]
-        'rewards': np.array([[0, 1], [0, 1]]),
+        'rewards': np.array([[-1, 1], [-1, 1]]),
 
         # probabilities : A - > [ p of losing, p of winning] , B -> [p of losing, p of winning]
         'p': np.array([[0.25, 0.75], [0.25, 0.75]]),

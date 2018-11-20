@@ -1,7 +1,6 @@
 #!/usr/bin/python3.6
 import numpy as np
 import pickle
-import tqdm
 
 
 class Environment:
@@ -29,49 +28,58 @@ class Environment:
 
     def run(self):
 
-        name = self.model.__name__
-
         agent = self.model(
-            alpha=self.cognitive_params[name].get('alpha'),
-            beta=self.cognitive_params[name].get('beta'),
-            phi=self.cognitive_params[name].get('phi'),
-            q=self.cognitive_params[name].get('q'),
+            alpha=self.cognitive_params.get('alpha'),
+            beta=self.cognitive_params.get('beta'),
+            phi=self.cognitive_params.get('phi'),
+            q=self.cognitive_params.get('q'),
             t_max=self.t_max,
             n_options=self.n_options,
         )
-
-        # mapping column 6 to choice variable
-        col = 6
+        # mapping column 4 to choice variable
+        col = 4
 
         values = np.zeros(self.t_max, dtype=float)
 
         for t in range(self.t_max):
 
+            # switch condition
             self.p = self.conds[t]['p'].copy()
             self.rewards = self.conds[t]['rewards'].copy()
 
+            # make agent play
             choice = agent.choice(t)
             reward = self.play(choice)
             agent.save(choice=choice, t=t, reward=reward)
 
             if t != self.t_max - 1:
-
                 agent.learn(choice=choice, t=t)
 
-            if self.data[t, col] in (-1, 1):
+            # Compute the neg log likelihood
+            if self.data[t, col] in (-1., 1.):
 
                 c = int(self.data[t, col])
 
                 if c == -1:
                     c = 0
 
-                v = 1 - agent.memory['p_softmax'][t, c]
+                try:
 
-                values[t] = v
+                    values[t] = np.log(
+                        agent.memory['p_softmax'][t, c]
+                    )
+
+                except ZeroDivisionError:
+                    import warnings
+                    warnings.warn(
+                        'Zero division happened during likelihood computation'
+                    )
+
+                    values[t] = 0
             else:
                 values[t] = -1
 
-        return sum(np.log(values[values != -1])) * -1
+        return -sum(values[values != -1])
 
     def play(self, choice):
 
