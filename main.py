@@ -118,7 +118,7 @@ class Globals:
 
         self.max_evals = max_evals
 
-        self.trials_pbar = tqdm.tqdm(total=self.max_evals*5*self.n, desc=f"Optimizing")
+        self.trials_pbar = tqdm.tqdm(total=self.max_evals*5*self.n, desc="Optimizing")
 
 
 def run_fit(*args):
@@ -160,7 +160,7 @@ def run_subject(
 
     if os.path.exists(f'{g.save_path}/{file}'):
         print('File already exists.')
-        return None
+        return
 
     f_name = [{'f_name': file}]
 
