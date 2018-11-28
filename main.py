@@ -8,6 +8,7 @@ import multiprocessing as mp
 import tqdm
 import pickle
 import scipy.io as sp
+from hyperopt.mongoexp import MongoTrials
 
 import fit.env
 from analysis import analysis
@@ -28,148 +29,6 @@ class Globals:
     accessible from the whole script.
     Instantiated after if __name__ == '__main__'.
     """
-
-    def __init__(
-        self,
-        data_path='fit/data/experiment_1/',
-        save_path='fit/data/experiment_1_fit/',
-        max_evals=1500
-    ):
-
-        self.data_path = os.path.abspath(data_path)
-        self.save_path = os.path.abspath(save_path)
-        self.f_names = sorted([f for f in os.listdir(self.data_path)])
-        self.n = len(self.f_names)
-
-        models = [
-            QLearningAgent,
-            AsymmetricQLearningAgent,
-            PerseverationQLearningAgent,
-            PriorQLearningAgent,
-            FullQLearningAgent,
-        ]
-
-        self.max_evals = max_evals
-
-        self.trials_pbar = tqdm.tqdm(
-            total=self.max_evals*len(models), desc="Evals"
-        )
-
-
-def run_fit(*args):
-
-    # --------------------------------------------------------------------- #
-
-    model = args[0][0]['model']
-    f_name = args[0][2]['f_name']
-    cognitive_params = args[0][1]['params']
-
-    p = params.copy()
-
-    # --------------------------------------------------------------------- #
-
-    p['data'] = sp.loadmat(f'{g.data_path}/{f_name}')['data']
-    p['cognitive_params'] = cognitive_params.copy()
-    p['model'] = model
-
-    p['t_max'] = len(p['data'][:, 0])
-    p['conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
-
-    # --------------------------------------------------------------------- #
-
-    e = fit.env.Environment(pbar=None, **p)
-    results = e.run()
-
-    g.trials_pbar.update()
-
-    return results
-
-
-def run_subject(
-        file,
-        qlearning_space,
-        asymmetric_space,
-        perseveration_space,
-        prior_space,
-        full_space):
-
-    f_name = [{'f_name': file}]
-
-    # fit Qlearning
-    qlearning_trials = Trials()
-    qlearning_best = hp.fmin(
-        fn=run_fit,
-        space=qlearning_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=qlearning_trials
-    )
-    qlearning_best['likelihood'] = min(qlearning_trials.losses())
-
-    # fit AsymmetricQLearning
-    asymmetric_trials = Trials()
-    asymmetric_best = hp.fmin(
-        fn=run_fit,
-        space=asymmetric_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=asymmetric_trials
-    )
-    asymmetric_best['likelihood'] = min(asymmetric_trials.losses())
-
-    # fit PerseverationQLearning
-    perseveration_trials = Trials()
-    perseveration_best = hp.fmin(
-        fn=run_fit,
-        space=perseveration_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=perseveration_trials
-    )
-    perseveration_best['likelihood'] = min(perseveration_trials.losses())
-
-    # fit PriorQLearningAgent
-    prior_trials = Trials()
-    prior_best = hp.fmin(
-        fn=run_fit,
-        space=prior_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=prior_trials
-    )
-    prior_best['likelihood'] = min(prior_trials.losses())
-
-    # fit FullQLearningAgent
-    full_trials = Trials()
-    full_best = hp.fmin(
-        fn=run_fit,
-        space=full_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=full_trials
-    )
-
-    full_best['likelihood'] = min(full_trials.losses())
-
-    with open(f'{g.save_path}/{i}{file}'.replace('.mat', '.p'), 'wb') as f:
-        pickle.dump(dict(
-            qlearning=qlearning_best,
-            asymmetric=asymmetric_best,
-            perseveration=perseveration_best,
-            prior=prior_best,
-            full=full_best
-        ), file=f)
-
-    sp.savemat(f'{g.save_path}/{i}{file}', dict(
-        qlearning=qlearning_best,
-        asymmetric=asymmetric_best,
-        perseveration=perseveration_best,
-        prior=prior_best,
-        full=full_best
-    ))
-
-
-def fitting():
 
     # Discrete parameter space
     # --------------------------------------------------------------------- #
@@ -245,9 +104,146 @@ def fitting():
         }}
     ]
 
-    p = mp.Pool(processes=g.f_names)
+    def __init__(
+        self,
+        data_path='fit/data/experiment_1/',
+        save_path='fit/data/experiment_1_fit/',
+        max_evals=1500
+    ):
+
+        self.data_path = os.path.abspath(data_path)
+        self.save_path = os.path.abspath(save_path)
+        self.f_names = sorted([f for f in os.listdir(self.data_path)])
+        self.n = len(self.f_names)
+
+        self.max_evals = max_evals
+
+        self.trials_pbar = tqdm.tqdm(total=self.max_evals*5*self.n, desc=f"Optimizing")
 
 
+def run_fit(*args):
+
+    # --------------------------------------------------------------------- #
+
+    model = args[0][0]['model']
+    f_name = args[0][2]['f_name']
+    cognitive_params = args[0][1]['params']
+
+    p = params.copy()
+
+    # --------------------------------------------------------------------- #
+
+    p['data'] = sp.loadmat(f'{g.data_path}/{f_name}')['data']
+    p['cognitive_params'] = cognitive_params.copy()
+    p['model'] = model
+
+    p['t_max'] = len(p['data'][:, 0])
+    p['conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
+
+    # --------------------------------------------------------------------- #
+
+    e = fit.env.Environment(pbar=None, **p)
+    results = e.run()
+
+    g.trials_pbar.update()
+
+    return results
+
+
+def run_subject(
+        file,
+        qlearning_space=Globals.qlearning_space,
+        asymmetric_space=Globals.asymmetric_space,
+        perseveration_space=Globals.perseveration_space,
+        prior_space=Globals.prior_space,
+        full_space=Globals.full_space):
+
+    if os.path.exists(f'{g.save_path}/{file}'):
+        print('File already exists.')
+        return None
+
+    f_name = [{'f_name': file}]
+
+    # fit Qlearning
+    qlearning_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
+    qlearning_best = hp.fmin(
+        fn=run_fit,
+        space=qlearning_space + f_name,
+        algo=hp.tpe.suggest,
+        max_evals=g.max_evals,
+        trials=qlearning_trials
+    )
+    qlearning_best['likelihood'] = min(qlearning_trials.losses())
+
+    # fit AsymmetricQLearning
+    asymmetric_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
+    asymmetric_best = hp.fmin(
+        fn=run_fit,
+        space=asymmetric_space + f_name,
+        algo=hp.tpe.suggest,
+        max_evals=g.max_evals,
+        trials=asymmetric_trials
+    )
+    asymmetric_best['likelihood'] = min(asymmetric_trials.losses())
+
+    # fit PerseverationQLearning
+    perseveration_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
+    perseveration_best = hp.fmin(
+        fn=run_fit,
+        space=perseveration_space + f_name,
+        algo=hp.tpe.suggest,
+        max_evals=g.max_evals,
+        trials=perseveration_trials
+    )
+    perseveration_best['likelihood'] = min(perseveration_trials.losses())
+
+    # fit PriorQLearningAgent
+    prior_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
+    prior_best = hp.fmin(
+        fn=run_fit,
+        space=prior_space + f_name,
+        algo=hp.tpe.suggest,
+        max_evals=g.max_evals,
+        trials=prior_trials
+    )
+    prior_best['likelihood'] = min(prior_trials.losses())
+
+    # fit FullQLearningAgent
+    full_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
+    full_best = hp.fmin(
+        fn=run_fit,
+        space=full_space + f_name,
+        algo=hp.tpe.suggest,
+        max_evals=g.max_evals,
+        trials=full_trials
+    )
+
+    full_best['likelihood'] = min(full_trials.losses())
+
+    with open(f'{g.save_path}/{file}'.replace('.mat', '.p'), 'wb') as f:
+        pickle.dump(dict(
+            qlearning=qlearning_best,
+            asymmetric=asymmetric_best,
+            perseveration=perseveration_best,
+            prior=prior_best,
+            full=full_best
+        ), file=f)
+
+    sp.savemat(f'{g.save_path}/{file}', dict(
+        qlearning=qlearning_best,
+        asymmetric=asymmetric_best,
+        perseveration=perseveration_best,
+        prior=prior_best,
+        full=full_best
+    ))
+
+
+def fitting():
+
+    run_subject(file=g.f_names[0])
+    # with mp.Pool() as p:
+    #     for _ in p.imap_unordered(run_subject, g.f_names):
+    #         pass
 
 
 def run_analysis():
