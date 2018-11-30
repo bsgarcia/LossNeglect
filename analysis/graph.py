@@ -4,6 +4,51 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gd
 
 
+def params_model_comparison(data):
+
+    # params
+    ind = np.arange(len(data))
+    width = 0.2
+    opacity = 0.7
+    xlabels = 'Risk Positive', 'Risk Negative', 'Risk Neutral'
+    ylabel = 'Rewards'
+
+    plt.figure(figsize=(12, 8))
+    ax = plt.subplot()
+
+    # remove some axis
+    ax.spines['top'].set_visible(0)
+    ax.spines['right'].set_visible(0)
+    # ax.spines['left'].set_visible(0)
+
+    # grid in bg
+    # ax.set_axisbelow(True)
+    # ax.yaxis.grid(color='gray', alpha=0.3, linestyle='dashed')
+
+    ax.set_ylabel(ylabel)
+    ax.set_ylim(0, 1)
+    # ax.set_title('Rewards over 100 trials for each learning model')
+    ax.set_xticks(ind + width)
+    ax.set_xticklabels(xlabels)
+    ax.tick_params(axis='both', which='both', length=0)
+    ax.set_xticklabels(xlabels, rotation=45)
+
+    for i, label in enumerate(('QLearning', 'Asymmetric', 'Perseveration')):
+
+        # cond is condition
+        # i is model
+        # in the values for each condition and model
+        # mean is first and std is second
+        means = [data[cond][i][0] for cond in ind]
+        std = [data[cond][i][1] for cond in ind]
+        ax.bar(ind + i * width, means, width, yerr=std, label=label, alpha=opacity,
+               error_kw=dict(ecolor='gray', capsize=4, capthick=1.5))
+        # ax.grid(0)
+
+    ax.legend()
+    plt.show()
+
+
 def reward_model_comparison(data):
 
     # params

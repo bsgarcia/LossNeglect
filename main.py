@@ -20,6 +20,9 @@ from simulation.models import (
     PriorQLearningAgent,
     FullQLearningAgent)
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 
 class Globals:
 
@@ -124,7 +127,6 @@ class Globals:
 def run_fit(*args):
 
     # --------------------------------------------------------------------- #
-
     model = args[0][0]['model']
     f_name = args[0][2]['f_name']
     cognitive_params = args[0][1]['params']
@@ -133,7 +135,7 @@ def run_fit(*args):
 
     # --------------------------------------------------------------------- #
 
-    p['data'] = sp.loadmat(f'{g.data_path}/{f_name}')['data']
+    p['data'] = sp.loadmat(f"{g.data_path}/{f_name}")['data']
     p['cognitive_params'] = cognitive_params.copy()
     p['model'] = model
 
@@ -144,8 +146,6 @@ def run_fit(*args):
 
     e = fit.env.Environment(pbar=None, **p)
     results = e.run()
-
-    g.trials_pbar.update()
 
     return results
 
@@ -240,10 +240,10 @@ def run_subject(
 
 def fitting():
 
-    run_subject(file=g.f_names[0])
-    # with mp.Pool() as p:
-    #     for _ in p.imap_unordered(run_subject, g.f_names):
-    #         pass
+    # run_subject(file=g.f_names[0])
+    with mp.Pool() as p:
+        for _ in p.imap_unordered(run_subject, g.f_names):
+            pass
 
 
 def run_analysis():

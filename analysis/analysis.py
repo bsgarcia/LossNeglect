@@ -2,10 +2,54 @@ import pickle
 import numpy as np
 from analysis import graph
 import scipy.stats as sp
+from fit.parameters import params
+import os
 
 
 def load(fname):
-    return pickle.load(open(fname, 'rb'))
+    with open(fname, 'rb') as f:
+        return pickle.load(f)
+
+
+def kmap(model):
+    return {
+        'QLearningAgent': 'qlearning',
+        'PerseverationQLearningAgent': 'perseveration',
+        'PriorQLearningAgent': 'prior',
+        'FullQLearningAgent': 'full',
+        'AsymmetricQLearningAgent': 'asymmetric'
+    }[model]
+
+
+def params_model_comparisons():
+
+    data = [load(f'fit/data/experiment_2_fit/{fname}')
+            for fname in os.listdir('fit/data/experiment_2_fit') if fname[-1] == "p"]
+
+    models = params['cognitive_params'].keys()
+
+    new_data = {}
+
+    for model in models:
+
+        data_model = params['cognitive_params'][model].copy()
+        new_data_model = {}
+
+        for k, v in data_model.items():
+            if isinstance(v, np.ndarray):
+                new_data_model[f'{k}0'] = []
+                new_data_model[f'{k}1'] = []
+                continue
+            new_data_model[k] = []
+
+        for d in data:
+            for k in new_data_model.keys():
+                new_data_model[k].append(d[kmap(model)][k])
+
+        mean = {k: np.mean(v) for k, v in new_data_model.items()}
+        std = {k: np.std(v) for k, v in new_data_model.items()}
+
+        new_data[model] = {'scatter': new_data_model, 'mean_std': (mean, std)}
 
 
 def reward_model_comparison():
@@ -108,10 +152,10 @@ def single_choice_comparison():
 
 def run():
 
-    single_choice_comparison()
-    correct_choice_comparison()
-    reward_model_comparison()
-
+    # single_choice_comparison()
+    # correct_choice_comparison()
+    # reward_model_comparison()
+    params_model_comparisons()
 
 if __name__ == '__main__':
     exit('Please run the main.py script.')
