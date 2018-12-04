@@ -40,6 +40,9 @@ def params_model_comparisons():
                 new_data_model[f'{k}0'] = []
                 new_data_model[f'{k}1'] = []
                 continue
+            elif k == "beta":
+                continue
+
             new_data_model[k] = []
 
         for d in data:
@@ -47,9 +50,10 @@ def params_model_comparisons():
                 new_data_model[k].append(d[kmap(model)][k])
 
         mean = {k: np.mean(v) for k, v in new_data_model.items()}
-        std = {k: np.std(v) for k, v in new_data_model.items()}
-
+        std = {k: sp.sem(v) for k, v in new_data_model.items()}
         new_data[model] = {'scatter': new_data_model, 'mean_std': (mean, std)}
+
+    graph.bar_plot_model_comparison(data=new_data, data_scatter=None, ylabel='value')
 
 
 def reward_model_comparison():

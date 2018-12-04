@@ -42,7 +42,6 @@ class Environment:
             choices = np.zeros((self.n_agents, self.t_max), dtype=int)
             rewards = np.zeros((self.n_agents, self.t_max), dtype=int)
             correct_choices = np.zeros((self.n_agents, self.t_max), dtype=int)
-            # p_softmax = np.
 
             for n in range(self.n_agents):
 

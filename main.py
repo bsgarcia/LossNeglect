@@ -2,13 +2,12 @@
 import argparse
 import os
 import numpy as np
-import hyperopt as hp
-from hyperopt import Trials
 import multiprocessing as mp
 import tqdm
 import pickle
-import scipy.io as sp
-from hyperopt.mongoexp import MongoTrials
+import scipy.io
+import scipy.optimize
+import tensorflow as tf
 
 import fit.env
 from analysis import analysis
@@ -19,6 +18,7 @@ from simulation.models import (
     PerseverationQLearningAgent,
     PriorQLearningAgent,
     FullQLearningAgent)
+from fit.tf import convert_arr_to_tensor, tf_minimize
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -33,85 +33,56 @@ class Globals:
     Instantiated after if __name__ == '__main__'.
     """
 
-    # Discrete parameter space
+    # Continuous parameters bounds
     # --------------------------------------------------------------------- #
-    alpha_space = list(np.around(np.linspace(0.05, 1, 20), decimals=2))
-    alpha0_space = list(np.around(np.linspace(0.05, 1, 20), decimals=2))
-    alpha1_space = list(np.around(np.linspace(0.05, 1, 20), decimals=2))
-    phi_space = list(np.around(np.linspace(0.5, 10, 20), decimals=2))
-    q_space = list(np.around(np.linspace(0, 1, 20), decimals=2))
-
-    alpha = hp.hp.choice('alpha', alpha_space)
-    alpha0 = hp.hp.choice('alpha0', alpha0_space)
-    alpha1 = hp.hp.choice('alpha1', alpha1_space)
-    beta = hp.hp.quniform('beta', 0.5, 300, 5)
-    phi = hp.hp.choice('phi', phi_space)
-    q0 = hp.hp.choice('q0', q_space)
-    q1 = hp.hp.choice('q1', q_space)
-
-    # Continuous parameters space
-    # --------------------------------------------------------------------- #
-    alpha = hp.hp.uniform('alpha', 0, 1)
-    alpha0 = hp.hp.uniform('alpha0', 0, 1)
-    alpha1 = hp.hp.uniform('alpha1', 0, 1)
-    beta = hp.hp.uniform('beta', 1/1000, 400)
-    phi = hp.hp.uniform('phi', -10, 10)
-    q0 = hp.hp.uniform('q0', -1, 1)
-    q1 = hp.hp.uniform('q1', -1, 1)
-
+    alpha = (0, 1)
+    alpha0 = (0, 1)
+    alpha1 = (0, 1)
+    beta = (1/1000, 1000)
+    phi = (-10, 10)
+    q = (-1, 1)
     # --------------------------------------------------------------------- #
 
-    qlearning_space = [
-        {'model': QLearningAgent},
-        {'params':
-            {
-                'alpha': alpha,
-                'beta': beta,
-            }
-        }
-    ]
+    qlearning_params = {
+            'model': [QLearningAgent, ],
+            'labels': ['alpha', 'beta'],
+            'guesses': np.array([0.2, 50]),
+            'bounds':  [alpha, beta]
+    }
 
-    asymmetric_space = [
-        {'model': AsymmetricQLearningAgent},
-        {'params': {
-            'alpha': [alpha0, alpha1],
-            'beta': beta
-        }}
-    ]
+    asymmetric_params = {
+            'model':  [AsymmetricQLearningAgent, ],
+            'labels': ['alpha0', 'alpha1', 'beta'],
+            'guesses': np.array([0.3, 0.6, 50]),
+            'bounds':  [alpha, alpha, beta]
+    }
 
-    perseveration_space = [
-        {'model': PerseverationQLearningAgent},
-        {'params': {
-            'alpha': alpha,
-            'beta': beta,
-            'phi': phi
-        }}
-    ]
+    perseveration_params = {
+            'model':  [PerseverationQLearningAgent, ],
+            'labels': ['alpha', 'beta', 'phi'],
+            'guesses': np.array([0.5, 50, 5]),
+            'bounds':  [alpha, beta, phi]
+    }
 
-    prior_space = [
-        {'model': PriorQLearningAgent},
-        {'params': {
-            'alpha': alpha,
-            'beta': beta,
-            'q': [q0, q1]
-        }}
-    ]
+    prior_params = {
+            'model': [PriorQLearningAgent, ],
+            'labels': ['alpha', 'beta', 'q'],
+            'guesses': np.array([0.5, 50, 0]),
+            'bounds':  [alpha, beta, q]
+    }
 
-    full_space = [
-        {'model': FullQLearningAgent},
-        {'params': {
-            'alpha': [alpha0, alpha1],
-            'beta': beta,
-            'phi': phi,
-            'q': [q0, q1]
-        }}
-    ]
+    full_params = {
+            'model':  [FullQLearningAgent, ],
+            'labels': ['alpha0', 'alpha1', 'beta', 'phi,' 'q'],
+            'guesses': np.array([0.5, 0.5, 50, 5, 0]),
+            'bounds':  [alpha, alpha, beta, phi, q]
+    }
 
     def __init__(
         self,
-        data_path='fit/data/experiment_1/',
-        save_path='fit/data/experiment_1_fit/',
-        max_evals=1500
+        data_path='fit/data/experiment_2/',
+        save_path='fit/data/experiment_2_fit/',
+        max_evals=10000
     ):
 
         self.data_path = os.path.abspath(data_path)
@@ -121,120 +92,165 @@ class Globals:
 
         self.max_evals = max_evals
 
-        self.trials_pbar = tqdm.tqdm(total=self.max_evals*5*self.n, desc="Optimizing")
+        self.trials_pbar = tqdm.tqdm(total=5*self.n, desc="Optimizing")
 
 
 def run_fit(*args):
 
     # --------------------------------------------------------------------- #
-    model = args[0][0]['model']
-    f_name = args[0][2]['f_name']
-    cognitive_params = args[0][1]['params']
+    model = args[1][0]
+    f_name = args[1][1]
+    cog_values = args[0]
+    cog_label = args[1][2:]
+    cognitive_params = {k: v for k, v in zip(cog_label, cog_values)}
+    # print()
+    # print(cognitive_params)
+
+    if 'alpha0' in cognitive_params:
+        cognitive_params['alpha'] = np.array([
+            cognitive_params['alpha0'],
+            cognitive_params['alpha1'],
+        ])
 
     p = params.copy()
 
     # --------------------------------------------------------------------- #
 
-    p['data'] = sp.loadmat(f"{g.data_path}/{f_name}")['data']
+    p['data'] = scipy.io.loadmat(f"{g.data_path}/{f_name}")['data'][0][0]
     p['cognitive_params'] = cognitive_params.copy()
     p['model'] = model
 
     p['t_max'] = len(p['data'][:, 0])
-    p['conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
+    p['conds'] = p['data'][:, 2].flatten().astype(int) - 1
+    p['dic_conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
 
     # --------------------------------------------------------------------- #
 
     e = fit.env.Environment(pbar=None, **p)
-    results = e.run()
+    results = e.run_fit()
 
     return results
 
 
+def comparisons(model, f_name, cognitive_params):
+
+    # --------------------------------------------------------------------- #
+    if 'alpha0' in cognitive_params:
+        cognitive_params['alpha'] = np.array([
+            cognitive_params['alpha0'],
+            cognitive_params['alpha1'],
+        ])
+
+    p = params.copy()
+
+    # --------------------------------------------------------------------- #
+
+    p['data'] = scipy.io.loadmat(f"{g.data_path}/{f_name}")['data'][0][0]
+    p['cognitive_params'] = cognitive_params.copy()
+    p['model'] = model
+
+    p['t_max'] = len(p['data'][:, 0])
+    p['conds'] = p['data'][:, 2].flatten().astype(int) - 1
+    p['dic_conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
+
+    # --------------------------------------------------------------------- #
+
+    e = fit.env.Environment(**p)
+    e.run()
+
+
 def run_subject(
         file,
-        qlearning_space=Globals.qlearning_space,
-        asymmetric_space=Globals.asymmetric_space,
-        perseveration_space=Globals.perseveration_space,
-        prior_space=Globals.prior_space,
-        full_space=Globals.full_space):
+        qlearning_params=Globals.qlearning_params,
+        asymmetric_params=Globals.asymmetric_params,
+        perseveration_params=Globals.perseveration_params,
+        prior_params=Globals.prior_params,
+        full_params=Globals.full_params):
 
-    if os.path.exists(f'{g.save_path}/{file}'):
-        print('File already exists.')
-        return
+    # if os.path.exists(f'{g.save_path}/{file}'):
+    #     print('File already exists.')
+    #     return
 
-    f_name = [{'f_name': file}]
+    f_name = [file, ]
 
     # fit Qlearning
-    qlearning_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
-    qlearning_best = hp.fmin(
-        fn=run_fit,
-        space=qlearning_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=qlearning_trials
-    )
-    qlearning_best['likelihood'] = min(qlearning_trials.losses())
+    qlearning_best = scipy.optimize.basinhopping(
+        run_fit,
+        x0=qlearning_params['guesses'],
+        # bounds=qlearning_params['bounds'],
+        minimizer_kwargs=dict(
+            args=qlearning_params['model'] + f_name + qlearning_params['cog'],
+            bounds=qlearning_params['bounds'],
+            method="L-BFGS-B",
+            options={'maxiter': 10000}
+        ))
 
-    # fit AsymmetricQLearning
-    asymmetric_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
-    asymmetric_best = hp.fmin(
-        fn=run_fit,
-        space=asymmetric_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=asymmetric_trials
-    )
-    asymmetric_best['likelihood'] = min(asymmetric_trials.losses())
+    g.trials_pbar.update()
 
-    # fit PerseverationQLearning
-    perseveration_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
-    perseveration_best = hp.fmin(
-        fn=run_fit,
-        space=perseveration_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=perseveration_trials
-    )
-    perseveration_best['likelihood'] = min(perseveration_trials.losses())
-
-    # fit PriorQLearningAgent
-    prior_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
-    prior_best = hp.fmin(
-        fn=run_fit,
-        space=prior_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=prior_trials
-    )
-    prior_best['likelihood'] = min(prior_trials.losses())
-
-    # fit FullQLearningAgent
-    full_trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=file)
-    full_best = hp.fmin(
-        fn=run_fit,
-        space=full_space + f_name,
-        algo=hp.tpe.suggest,
-        max_evals=g.max_evals,
-        trials=full_trials
-    )
-
-    full_best['likelihood'] = min(full_trials.losses())
+    # # fit AsymmetricQLearning
+    # asymmetric_trials = Trials()
+    # asymmetric_best = hp.fmin(
+    #     fn=run_fit,
+    #     params=asymmetric_params + f_name,
+    #     algo=hp.tpe.suggest,
+    #     max_evals=g.max_evals,
+    #     trials=asymmetric_trials
+    # )
+    # asymmetric_best['likelihood'] = min(asymmetric_trials.losses())
+    # g.trials_pbar.update()
+    #
+    # # fit PerseverationQLearning
+    # perseveration_trials = Trials()
+    # perseveration_best = hp.fmin(
+    #     fn=run_fit,
+    #     params=perseveration_params + f_name,
+    #     algo=hp.tpe.suggest,
+    #     max_evals=g.max_evals,
+    #     trials=perseveration_trials
+    # )
+    # perseveration_best['likelihood'] = min(perseveration_trials.losses())
+    # g.trials_pbar.update()
+    #
+    # # fit PriorQLearningAgent
+    # prior_trials = Trials()
+    # prior_best = hp.fmin(
+    #     fn=run_fit,
+    #     params=prior_params + f_name,
+    #     algo=hp.tpe.suggest,
+    #     max_evals=g.max_evals,
+    #     trials=prior_trials
+    # )
+    # prior_best['likelihood'] = min(prior_trials.losses())
+    # g.trials_pbar.update()
+    #
+    # # fit FullQLearningAgent
+    # full_trials = Trials()
+    # full_best = hp.fmin(
+    #     fn=run_fit,
+    #     params=full_params + f_name,
+    #     algo=hp.tpe.suggest,
+    #     max_evals=g.max_evals,
+    #     trials=full_trials
+    # )
+    #
+    # full_best['likelihood'] = min(full_trials.losses())
+    # g.trials_pbar.update()
 
     with open(f'{g.save_path}/{file}'.replace('.mat', '.p'), 'wb') as f:
         pickle.dump(dict(
-            qlearning=qlearning_best,
-            asymmetric=asymmetric_best,
-            perseveration=perseveration_best,
-            prior=prior_best,
-            full=full_best
+            qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
+            # asymmetric=asymmetric_best,
+            # perseveration=perseveration_best,
+            # prior=prior_best,
+            # full=full_best
         ), file=f)
 
-    sp.savemat(f'{g.save_path}/{file}', dict(
-        qlearning=qlearning_best,
-        asymmetric=asymmetric_best,
-        perseveration=perseveration_best,
-        prior=prior_best,
-        full=full_best
+    scipy.io.savemat(f'{g.save_path}/{file}', dict(
+        qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
+        # asymmetric=asymmetric_best,
+        # perseveration=perseveration_best,
+        # prior=prior_best,
+        # full=full_best
     ))
 
 
@@ -244,6 +260,7 @@ def fitting():
     with mp.Pool() as p:
         for _ in p.imap_unordered(run_subject, g.f_names):
             pass
+    # run_subject(file=g.f_names[0])
 
 
 def run_analysis():
@@ -273,6 +290,12 @@ if __name__ == '__main__':
     # if args.simulation:
     #     run_simulation()
 
+    comparisons(
+        model=QLearningAgent,
+            f_name=g.f_names[2],
+            cognitive_params=pickle.load(
+                open(f'fit/data/experiment_2_fit/{g.f_names[2].replace(".mat", ".p")}', 'rb'))['qlearning']
+    )
     if p_args.optimize:
         fitting()
 

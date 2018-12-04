@@ -37,14 +37,14 @@ params = {
         'PriorQLearningAgent': {
             'alpha': 0,
             'beta': 0,
-            'q': np.array([0, 0])
+            'q': 0
         },
 
         'FullQLearningAgent': {
             'alpha': np.array([0, 0]),
             'beta': 0,
             'phi': 0,
-            'q': np.array([0, 0])
+            'q': 0
         }
     }
 }

@@ -5,11 +5,10 @@ import pickle
 
 class Environment:
 
-    def __init__(self, pbar=None, **kwargs):
+    def __init__(self, **kwargs):
 
         self.params = kwargs.copy()
         self.data = kwargs['data']
-        self.pbar = pbar
 
         self.n_sessions = kwargs.get('n_sessions')
         self.t_max = kwargs.get('t_max')
@@ -24,6 +23,7 @@ class Environment:
         self.t_when_reversal_occurs = kwargs.get('t_when_reversal_occurs')
         self.p = None
         self.rewards = None
+        self.dic_conds = kwargs.get('dic_conds')
         self.conds = kwargs.get('conds')
 
     def run(self):
@@ -35,6 +35,47 @@ class Environment:
             q=self.cognitive_params.get('q'),
             t_max=self.t_max,
             n_options=self.n_options,
+            n_conds=4
+        )
+
+        print(self.cognitive_params)
+
+        choices = np.zeros(self.t_max)
+
+        for t in range(self.t_max):
+
+            # switch condition
+            self.p = self.dic_conds[t]['p'].copy()
+            self.rewards = self.dic_conds[t]['rewards'].copy()
+
+            # make agent play by using subject'choice
+            cond = self.conds[t]
+            choice = agent.choice(t=t, cond=cond)
+            reward = self.play(choice)
+            agent.save(choice=choice, t=t, reward=reward, cond=cond)
+
+            if t != self.t_max - 1:
+                agent.learn(choice=choice, t=t, cond=cond)
+
+            choices[t] = choice
+
+        # self.plot(results=choices)
+
+        choices[choices == 0] = -1
+        choices = choices[self.data[:, 4] != 0]
+        self.data[:, 4] = self.data[self.data[:, 4] != 0, 4]
+        print(sum(choices == self.data[:, 4]) / self.t_max)
+
+    def run_fit(self):
+
+        agent = self.model(
+            alpha=self.cognitive_params.get('alpha'),
+            beta=self.cognitive_params.get('beta'),
+            phi=self.cognitive_params.get('phi'),
+            q=self.cognitive_params.get('q'),
+            t_max=self.t_max,
+            n_options=self.n_options,
+            n_conds=4
         )
         # mapping column 4 to choice variable
         col = 4
@@ -44,41 +85,40 @@ class Environment:
         for t in range(self.t_max):
 
             # switch condition
-            self.p = self.conds[t]['p'].copy()
-            self.rewards = self.conds[t]['rewards'].copy()
+            self.p = self.dic_conds[t]['p'].copy()
+            self.rewards = self.dic_conds[t]['rewards'].copy()
 
-            # make agent play
-            choice = agent.choice(t)
-            reward = self.play(choice)
-            agent.save(choice=choice, t=t, reward=reward)
+            # make agent play by using subject'choice
+            choice = 1 if self.data[t, col] else -1 if not self.data[t, col] else 0
+            cond = self.conds[t]
 
-            if t != self.t_max - 1:
-                agent.learn(choice=choice, t=t)
+            if choice != -1:
 
-            # Compute the neg log likelihood
-            if self.data[t, col] in (-1., 1.):
+                reward = self.play(choice)
+                agent.save(choice=choice, t=t, reward=reward, cond=cond)
 
-                c = int(self.data[t, col])
-
-                if c == -1:
-                    c = 0
+                if t != self.t_max - 1:
+                    agent.learn(choice=choice, t=t, cond=cond)
 
                 try:
 
                     values[t] = np.log(
-                        agent.memory['p_softmax'][t, c]
+                        agent.memory['p_softmax'][t, choice, cond]
                     )
 
-                except ZeroDivisionError:
-                    import warnings
-                    warnings.warn(
-                        'Zero division happened during likelihood computation'
-                    )
+                except (ZeroDivisionError, RuntimeWarning):
+                    # print(
+                    #     'Zero division happened during likelihood computation'
+                    # )
 
-                    values[t] = 0
+                    # If p of the choice was 0
+                    # we take a very small value
+                    values[t] = np.log(10 ** -10)
+
             else:
-                values[t] = -1
+                values[t] = choice
 
+        # print(-sum(values[values != -1]))
         return -sum(values[values != -1])
 
     def play(self, choice):
@@ -88,16 +128,16 @@ class Environment:
             p=self.p[choice]
         )]
 
-    def save(self, results):
+    def plot(self, results):
 
-        data = {
-            'params': self.params,
-            'condition': self.condition,
-            'results': results
-        }
-
-        pickle.dump(obj=data, file=open(f'data/data_{self.condition}.p', 'wb'))
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot(self.data[:, 4])
+        fig, ax = plt.subplots()
+        ax.plot(results)
+        plt.show()
 
 
 if __name__ == '__main__':
     exit('Please run the main.py script.')
+    
