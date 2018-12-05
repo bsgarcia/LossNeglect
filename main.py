@@ -44,35 +44,35 @@ class Globals:
     # --------------------------------------------------------------------- #
 
     qlearning_params = {
-            'model': [QLearningAgent, ],
+            'model': QLearningAgent,
             'labels': ['alpha', 'beta'],
             'guesses': np.array([0.2, 50]),
             'bounds':  [alpha, beta]
     }
 
     asymmetric_params = {
-            'model':  [AsymmetricQLearningAgent, ],
+            'model':  AsymmetricQLearningAgent,
             'labels': ['alpha0', 'alpha1', 'beta'],
             'guesses': np.array([0.3, 0.6, 50]),
             'bounds':  [alpha, alpha, beta]
     }
 
     perseveration_params = {
-            'model':  [PerseverationQLearningAgent, ],
+            'model':  PerseverationQLearningAgent,
             'labels': ['alpha', 'beta', 'phi'],
             'guesses': np.array([0.5, 50, 5]),
             'bounds':  [alpha, beta, phi]
     }
 
     prior_params = {
-            'model': [PriorQLearningAgent, ],
+            'model': PriorQLearningAgent,
             'labels': ['alpha', 'beta', 'q'],
             'guesses': np.array([0.5, 50, 0]),
             'bounds':  [alpha, beta, q]
     }
 
     full_params = {
-            'model':  [FullQLearningAgent, ],
+            'model':  FullQLearningAgent,
             'labels': ['alpha0', 'alpha1', 'beta', 'phi,' 'q'],
             'guesses': np.array([0.5, 0.5, 50, 5, 0]),
             'bounds':  [alpha, alpha, beta, phi, q]
@@ -95,51 +95,22 @@ class Globals:
         self.trials_pbar = tqdm.tqdm(total=5*self.n, desc="Optimizing")
 
 
-def run_fit(*args):
+def run_fit(cog_params, kwargs):
 
-    # --------------------------------------------------------------------- #
-    model = args[1][0]
-    f_name = args[1][1]
-    cog_values = args[0]
-    cog_label = args[1][2:]
-    cognitive_params = {k: v for k, v in zip(cog_label, cog_values)}
-    # print()
-    # print(cognitive_params)
+    model = kwargs['model']
+    f_name = kwargs['file']
+    cog_label = kwargs['labels']
+
+    cognitive_params = {
+        'alpha': cog_params[0],
+        'beta': cog_params[1]
+    }
 
     if 'alpha0' in cognitive_params:
-        cognitive_params['alpha'] = np.array([
+        cognitive_params['alpha'] = tf.Variable(np.array([
             cognitive_params['alpha0'],
             cognitive_params['alpha1'],
-        ])
-
-    p = params.copy()
-
-    # --------------------------------------------------------------------- #
-
-    p['data'] = scipy.io.loadmat(f"{g.data_path}/{f_name}")['data'][0][0]
-    p['cognitive_params'] = cognitive_params.copy()
-    p['model'] = model
-
-    p['t_max'] = len(p['data'][:, 0])
-    p['conds'] = p['data'][:, 2].flatten().astype(int) - 1
-    p['dic_conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
-
-    # --------------------------------------------------------------------- #
-
-    e = fit.env.Environment(pbar=None, **p)
-    results = e.run_fit()
-
-    return results
-
-
-def comparisons(model, f_name, cognitive_params):
-
-    # --------------------------------------------------------------------- #
-    if 'alpha0' in cognitive_params:
-        cognitive_params['alpha'] = np.array([
-            cognitive_params['alpha0'],
-            cognitive_params['alpha1'],
-        ])
+        ]))
 
     p = params.copy()
 
@@ -156,8 +127,32 @@ def comparisons(model, f_name, cognitive_params):
     # --------------------------------------------------------------------- #
 
     e = fit.env.Environment(**p)
-    e.run()
+    return e.run_fit()
 
+
+# def comparisons(model, f_name cognitive_params):
+#
+    # if 'alpha0' in cognitive_params:
+    #     cognitive_params['alpha'] = np.array([
+    #         cognitive_params['alpha0'],
+    #         cognitive_params['alpha1'],
+    #     ])
+    #
+    # p = params.copy()
+    #
+    #
+    # p['data'] = scipy.io.loadmat(f"{g.data_path}/{f_name}")['data'][0][0]
+    # p['cognitive_params'] = cognitive_params.copy()
+    # p['model'] = model
+    #
+    # p['t_max'] = len(p['data'][:, 0])
+    # p['conds'] = p['data'][:, 2].flatten().astype(int) - 1
+    # p['dic_conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
+    #
+    #
+    # e = fit.env.Environment(**p)
+    # e.run()
+#
 
 def run_subject(
         file,
@@ -167,23 +162,29 @@ def run_subject(
         prior_params=Globals.prior_params,
         full_params=Globals.full_params):
 
-    # if os.path.exists(f'{g.save_path}/{file}'):
-    #     print('File already exists.')
-    #     return
 
-    f_name = [file, ]
+    x0 = tf.Variable(
+         qlearning_params["guesses"], dtype=tf.float32, name='cog_params'
+    )
+
+    alpha = tf.clip_by_value(x0[0], 0, 1)
+    beta = tf.clip_by_value(x0[1], 1, 1000)
+
+    cog_params = tf.Variable([alpha, beta])
+
+    qlearning_params.update(
+        {'file': file}
+    )
+
+    fx = run_fit(cog_params, qlearning_params)
 
     # fit Qlearning
-    qlearning_best = scipy.optimize.basinhopping(
-        run_fit,
-        x0=qlearning_params['guesses'],
-        # bounds=qlearning_params['bounds'],
-        minimizer_kwargs=dict(
-            args=qlearning_params['model'] + f_name + qlearning_params['cog'],
-            bounds=qlearning_params['bounds'],
-            method="L-BFGS-B",
-            options={'maxiter': 10000}
-        ))
+    qlearning_best = tf_minimize(
+        fx,
+        output=cog_params
+    )
+
+    print(qlearning_best)
 
     g.trials_pbar.update()
 
@@ -238,7 +239,7 @@ def run_subject(
 
     with open(f'{g.save_path}/{file}'.replace('.mat', '.p'), 'wb') as f:
         pickle.dump(dict(
-            qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
+            qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best[1])},
             # asymmetric=asymmetric_best,
             # perseveration=perseveration_best,
             # prior=prior_best,
@@ -246,7 +247,7 @@ def run_subject(
         ), file=f)
 
     scipy.io.savemat(f'{g.save_path}/{file}', dict(
-        qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
+        qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best[1])},
         # asymmetric=asymmetric_best,
         # perseveration=perseveration_best,
         # prior=prior_best,
@@ -257,10 +258,10 @@ def run_subject(
 def fitting():
 
     # run_subject(file=g.f_names[0])
-    with mp.Pool() as p:
-        for _ in p.imap_unordered(run_subject, g.f_names):
-            pass
-    # run_subject(file=g.f_names[0])
+    # with mp.Pool() as p:
+    #     for _ in p.imap_unordered(run_subject, g.f_names):
+    #         pass
+    run_subject(file=g.f_names[0])
 
 
 def run_analysis():
@@ -290,12 +291,12 @@ if __name__ == '__main__':
     # if args.simulation:
     #     run_simulation()
 
-    comparisons(
-        model=QLearningAgent,
-            f_name=g.f_names[2],
-            cognitive_params=pickle.load(
-                open(f'fit/data/experiment_2_fit/{g.f_names[2].replace(".mat", ".p")}', 'rb'))['qlearning']
-    )
+    # comparisons(
+    #     model=QLearningAgent,
+    #         f_name=g.f_names[2],
+    #         cognitive_params=pickle.load(
+    #             open(f'fit/data/experiment_2_fit/{g.f_names[2].replace(".mat", ".p")}', 'rb'))['qlearning']
+    # )
     if p_args.optimize:
         fitting()
 

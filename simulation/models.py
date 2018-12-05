@@ -1,5 +1,6 @@
 #!/usr/bin/python3.6
 import numpy as np
+import tensorflow as tf
 import warnings
 
 warnings.filterwarnings('error')
@@ -13,16 +14,15 @@ class QLearningAgent:
 
     def __init__(self, alpha, beta, t_max, n_options, n_conds, **kwargs):
 
-        self.alpha = alpha
+        self.alpha = tf.Variable(alpha)
+        self.beta = tf.Variable(beta)
 
-        self.beta = beta
+        self.q = tf.Variable(tf.zeros((t_max, n_options, n_conds), dtype=tf.float32))
+        self.pe = tf.Variable(tf.zeros((t_max, n_options, n_conds), dtype=tf.float32))
+        self.p_softmax = tf.Variable(tf.zeros((t_max, n_options, n_conds), dtype=tf.float32))
 
-        self.q = np.zeros((t_max, n_options, n_conds), dtype=float)
-        self.pe = np.zeros((t_max, n_options, n_conds), dtype=float)
-        self.p_softmax = np.zeros((t_max, n_options, n_conds), dtype=float)
-
-        self.choices = np.zeros(t_max, dtype=int)
-        self.rewards = np.zeros(t_max, dtype=int)
+        self.choices = tf.Variable(tf.zeros(t_max, dtype=tf.int32))
+        self.rewards = tf.Variable(tf.zeros(t_max, dtype=tf.int32))
 
     @property
     def memory(self):
@@ -36,23 +36,30 @@ class QLearningAgent:
 
     def save(self, choice, t, reward, cond):
 
-        self.choices[t] = choice
-        self.rewards[t] = reward
-        self.pe[t, choice, cond] = reward - self.q[t, choice, cond]
+        self.choices = tf.scatter_update(self.choices, [t], [choice])
+        self.rewards = tf.scatter_update(self.choices, [t], [choice])
+        self.pe = tf.scatter_update(
+            self.pe, [t, choice, cond], [reward - self.q[t, choice, cond]]
+        )
 
-        self.p_softmax[t, :, cond] = self.softmax(t, cond)
+        for i in range(len(self.p_softmax[t, :, cond])):
+            print(self.softmax(t, cond))
+            self.p_softmax = tf.scatter_update(
+                self.p_softmax, [t, i, cond], self.softmax(t=t, cond=cond)[i]
+            )
 
     def choice(self, t, cond):
         return np.random.choice([0, 1], p=self.softmax(t, cond))
 
     def learn(self, choice, t, cond):
-        self.q[t + 1, choice, cond] = self.q[t, choice, cond] + self.alpha * self.pe[t, choice, cond]
+        self.q = self.q[t + 1, choice, cond].assign(
+            self.q[t, choice, cond] + self.alpha * self.pe[t, choice, cond])
 
     def softmax(self, t, cond):
-        m = max(self.q[t, :, cond] * self.beta)
-        return np.exp(
+        m = tf.reduce_max(self.q[t, :, cond] * self.beta)
+        return tf.math.exp(
             self.beta * self.q[t, :, cond] - m
-        ) / np.sum(np.exp(
+        ) / tf.reduce_sum(tf.math.exp(
             self.beta * self.q[t, :, cond] - m
         ))
 

@@ -1,5 +1,6 @@
 #!/usr/bin/python3.6
 import numpy as np
+import tensorflow as tf
 import pickle
 
 
@@ -64,7 +65,6 @@ class Environment:
         choices[choices == 0] = -1
         choices = choices[self.data[:, 4] != 0]
         self.data[:, 4] = self.data[self.data[:, 4] != 0, 4]
-        print(sum(choices == self.data[:, 4]) / self.t_max)
 
     def run_fit(self):
 
@@ -80,7 +80,7 @@ class Environment:
         # mapping column 4 to choice variable
         col = 4
 
-        values = np.zeros(self.t_max, dtype=float)
+        values = tf.Variable(tf.zeros(self.t_max, dtype=tf.float32))
 
         for t in range(self.t_max):
 
@@ -95,31 +95,19 @@ class Environment:
             if choice != -1:
 
                 reward = self.play(choice)
+                choice = tf.Variable(choice)
                 agent.save(choice=choice, t=t, reward=reward, cond=cond)
 
                 if t != self.t_max - 1:
                     agent.learn(choice=choice, t=t, cond=cond)
 
-                try:
-
-                    values[t] = np.log(
-                        agent.memory['p_softmax'][t, choice, cond]
-                    )
-
-                except (ZeroDivisionError, RuntimeWarning):
-                    # print(
-                    #     'Zero division happened during likelihood computation'
-                    # )
-
-                    # If p of the choice was 0
-                    # we take a very small value
-                    values[t] = np.log(10 ** -10)
+                values = values[t].assign(agent.memory['p_softmax'][t, choice, cond])
 
             else:
-                values[t] = choice
+                values = values[t].assign(choice)
 
         # print(-sum(values[values != -1]))
-        return -sum(values[values != -1])
+        return -tf.reduce_sum(tf.log(values[values.eval() != -1]))
 
     def play(self, choice):
 
