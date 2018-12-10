@@ -100,26 +100,13 @@ class Environment:
                 if t != self.t_max - 1:
                     agent.learn(choice=choice, t=t, cond=cond)
 
-                try:
-
-                    values[t] = np.log(
-                        agent.memory['p_softmax'][t, choice, cond]
-                    )
-
-                except (ZeroDivisionError, RuntimeWarning):
-                    # print(
-                    #     'Zero division happened during likelihood computation'
-                    # )
-
-                    # If p of the choice was 0
-                    # we take a very small value
-                    values[t] = np.log(10 ** -10)
+                values[t] = agent.memory['p_softmax'][t, choice, cond]
 
             else:
                 values[t] = choice
 
         # print(-sum(values[values != -1]))
-        return -sum(values[values != -1])
+        return -sum(np.log(values[values != -1] + 10e-6))
 
     def play(self, choice):
 

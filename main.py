@@ -7,7 +7,7 @@ import tqdm
 import pickle
 import scipy.io
 import scipy.optimize
-import tensorflow as tf
+import matplotlib.pyplot as plt
 
 import fit.env
 from analysis import analysis
@@ -18,7 +18,6 @@ from simulation.models import (
     PerseverationQLearningAgent,
     PriorQLearningAgent,
     FullQLearningAgent)
-from fit.tf import convert_arr_to_tensor, tf_minimize
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -91,8 +90,11 @@ class Globals:
         self.n = len(self.f_names)
 
         self.max_evals = max_evals
+        self.trials_pbar = None
 
-        self.trials_pbar = tqdm.tqdm(total=5*self.n, desc="Optimizing")
+    def init_pbar(self):
+
+        self.trials_pbar = tqdm.tqdm(total=self.max_evals, desc="Optimizing")
 
 
 def run_fit(*args):
@@ -179,11 +181,13 @@ def run_subject(
         x0=qlearning_params['guesses'],
         # bounds=qlearning_params['bounds'],
         minimizer_kwargs=dict(
-            args=qlearning_params['model'] + f_name + qlearning_params['cog'],
+            args=qlearning_params['model'] + f_name + qlearning_params['labels'],
             bounds=qlearning_params['bounds'],
             method="L-BFGS-B",
-            options={'maxiter': 10000}
+            options={'maxiter': 20000}
         ))
+
+    print(qlearning_best)
 
     g.trials_pbar.update()
 
@@ -257,10 +261,11 @@ def run_subject(
 def fitting():
 
     # run_subject(file=g.f_names[0])
-    with mp.Pool() as p:
-        for _ in p.imap_unordered(run_subject, g.f_names):
-            pass
-    # run_subject(file=g.f_names[0])
+    # with mp.Pool() as p:
+    #     for _ in p.imap_unordered(run_subject, g.f_names):
+    #         pass
+    g.init_pbar()
+    run_subject(file=g.f_names[0])
 
 
 def run_analysis():
@@ -290,12 +295,12 @@ if __name__ == '__main__':
     # if args.simulation:
     #     run_simulation()
 
-    comparisons(
-        model=QLearningAgent,
-            f_name=g.f_names[2],
-            cognitive_params=pickle.load(
-                open(f'fit/data/experiment_2_fit/{g.f_names[2].replace(".mat", ".p")}', 'rb'))['qlearning']
-    )
+    # comparisons(
+    #     model=QLearningAgent,
+    #         f_name=g.f_names[2],
+    #         cognitive_params=pickle.load(
+    #             open(f'fit/data/experiment_2_fit/{g.f_names[2].replace(".mat", ".p")}', 'rb'))['qlearning']
+    # )
     if p_args.optimize:
         fitting()
 
