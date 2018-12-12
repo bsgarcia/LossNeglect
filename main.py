@@ -8,6 +8,7 @@ import pickle
 import scipy.io
 import scipy.optimize
 import matplotlib.pyplot as plt
+import pyfmincon
 
 import fit.env
 from analysis import analysis
@@ -18,6 +19,8 @@ from simulation.models import (
     PerseverationQLearningAgent,
     PriorQLearningAgent,
     FullQLearningAgent)
+
+
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
