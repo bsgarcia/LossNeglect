@@ -9,6 +9,7 @@ import scipy.io
 import scipy.optimize
 import matplotlib.pyplot as plt
 import pyfmincon
+import pyfmincon.opt
 
 import fit.env
 from analysis import analysis
@@ -46,35 +47,35 @@ class Globals:
     # --------------------------------------------------------------------- #
 
     qlearning_params = {
-            'model': [QLearningAgent, ],
+            'model': QLearningAgent,
             'labels': ['alpha', 'beta'],
             'guesses': np.array([0.2, 50]),
             'bounds':  [alpha, beta]
     }
 
     asymmetric_params = {
-            'model':  [AsymmetricQLearningAgent, ],
+            'model': AsymmetricQLearningAgent,
             'labels': ['alpha0', 'alpha1', 'beta'],
             'guesses': np.array([0.3, 0.6, 50]),
             'bounds':  [alpha, alpha, beta]
     }
 
     perseveration_params = {
-            'model':  [PerseverationQLearningAgent, ],
+            'model': PerseverationQLearningAgent,
             'labels': ['alpha', 'beta', 'phi'],
             'guesses': np.array([0.5, 50, 5]),
             'bounds':  [alpha, beta, phi]
     }
 
     prior_params = {
-            'model': [PriorQLearningAgent, ],
+            'model': PriorQLearningAgent,
             'labels': ['alpha', 'beta', 'q'],
             'guesses': np.array([0.5, 50, 0]),
             'bounds':  [alpha, beta, q]
     }
 
     full_params = {
-            'model':  [FullQLearningAgent, ],
+            'model': FullQLearningAgent,
             'labels': ['alpha0', 'alpha1', 'beta', 'phi,' 'q'],
             'guesses': np.array([0.5, 0.5, 50, 5, 0]),
             'bounds':  [alpha, alpha, beta, phi, q]
@@ -100,16 +101,14 @@ class Globals:
         self.trials_pbar = tqdm.tqdm(total=self.max_evals, desc="Optimizing")
 
 
-def run_fit(*args):
+def run_fit(x0):
 
     # --------------------------------------------------------------------- #
-    model = args[1][0]
-    f_name = args[1][1]
-    cog_values = args[0]
-    cog_label = args[1][2:]
+    model = AsymmetricQLearningAgent
+    f_name = "ASsub102Session2.mat"
+    cog_values = x0
+    cog_label = "alpha0", "alpha1", "beta"
     cognitive_params = {k: v for k, v in zip(cog_label, cog_values)}
-    # print()
-    # print(cognitive_params)
 
     if 'alpha0' in cognitive_params:
         cognitive_params['alpha'] = np.array([
@@ -121,36 +120,7 @@ def run_fit(*args):
 
     # --------------------------------------------------------------------- #
 
-    p['data'] = scipy.io.loadmat(f"{g.data_path}/{f_name}")['data'][0][0]
-    p['cognitive_params'] = cognitive_params.copy()
-    p['model'] = model
-
-    p['t_max'] = len(p['data'][:, 0])
-    p['conds'] = p['data'][:, 2].flatten().astype(int) - 1
-    p['dic_conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
-
-    # --------------------------------------------------------------------- #
-
-    e = fit.env.Environment(pbar=None, **p)
-    results = e.run_fit()
-
-    return results
-
-
-def comparisons(model, f_name, cognitive_params):
-
-    # --------------------------------------------------------------------- #
-    if 'alpha0' in cognitive_params:
-        cognitive_params['alpha'] = np.array([
-            cognitive_params['alpha0'],
-            cognitive_params['alpha1'],
-        ])
-
-    p = params.copy()
-
-    # --------------------------------------------------------------------- #
-
-    p['data'] = scipy.io.loadmat(f"{g.data_path}/{f_name}")['data'][0][0]
+    p['data'] = scipy.io.loadmat(f"fit/data/experiment_2/{f_name}")['data'][0][0]
     p['cognitive_params'] = cognitive_params.copy()
     p['model'] = model
 
@@ -161,7 +131,9 @@ def comparisons(model, f_name, cognitive_params):
     # --------------------------------------------------------------------- #
 
     e = fit.env.Environment(**p)
-    e.run()
+    results = e.run()
+
+    return results
 
 
 def run_subject(
@@ -176,23 +148,23 @@ def run_subject(
     #     print('File already exists.')
     #     return
 
-    f_name = [file, ]
+    # ---- set options ----
+    f = 'main.run_fit'
+    x0 = np.array([0.5, 0.5, 50])
+    lb = np.array([1/1000, 1/1000, 1/1000])
+    ub = np.array([1, 1, 1000])
+
+    options = {
+        'AlwaysHonorConstraints': 'bounds',
+        # 'display': 'iter-detailed',
+        'MaxIter': 20000,
+        'MaxFunEvals': 20000,
+        'display': 'off',
+        # 'Diagnostics': 'on'
+    }
 
     # fit Qlearning
-    qlearning_best = scipy.optimize.basinhopping(
-        run_fit,
-        x0=qlearning_params['guesses'],
-        # bounds=qlearning_params['bounds'],
-        minimizer_kwargs=dict(
-            args=qlearning_params['model'] + f_name + qlearning_params['labels'],
-            bounds=qlearning_params['bounds'],
-            method="L-BFGS-B",
-            options={'maxiter': 20000}
-        ))
-
-    print(qlearning_best)
-
-    g.trials_pbar.update()
+    qlearning_best = pyfmincon.opt.fmincon(f, x0=x0, lb=lb, ub=ub, options=options)
 
     # # fit AsymmetricQLearning
     # asymmetric_trials = Trials()
@@ -243,32 +215,34 @@ def run_subject(
     # full_best['likelihood'] = min(full_trials.losses())
     # g.trials_pbar.update()
 
-    with open(f'{g.save_path}/{file}'.replace('.mat', '.p'), 'wb') as f:
-        pickle.dump(dict(
-            qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
+    # with open(f'{g.save_path}/{file}'.replace('.mat', '.p'), 'wb') as f:
+    #     pickle.dump(dict(
+    #         qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
             # asymmetric=asymmetric_best,
             # perseveration=perseveration_best,
             # prior=prior_best,
             # full=full_best
-        ), file=f)
+        # ), file=f)
 
-    scipy.io.savemat(f'{g.save_path}/{file}', dict(
-        qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
+    # scipy.io.savemat(f'{g.save_path}/{file}', dict(
+    #     qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
         # asymmetric=asymmetric_best,
         # perseveration=perseveration_best,
         # prior=prior_best,
         # full=full_best
-    ))
+    # ))
 
 
 def fitting():
 
     # run_subject(file=g.f_names[0])
-    # with mp.Pool() as p:
-    #     for _ in p.imap_unordered(run_subject, g.f_names):
-    #         pass
-    g.init_pbar()
-    run_subject(file=g.f_names[0])
+    pyfmincon.opt.start()
+
+    with mp.Pool() as p:
+        for _ in p.imap_unordered(run_subject, g.f_names):
+            pass
+
+    pyfmincon.opt.stop()
 
 
 def run_analysis():
@@ -295,23 +269,14 @@ if __name__ == '__main__':
 
     is_running_in_pycharm = "PYCHARM_HOSTED" in os.environ
 
-    # if args.simulation:
-    #     run_simulation()
-
-    # comparisons(
-    #     model=QLearningAgent,
-    #         f_name=g.f_names[2],
-    #         cognitive_params=pickle.load(
-    #             open(f'fit/data/experiment_2_fit/{g.f_names[2].replace(".mat", ".p")}', 'rb'))['qlearning']
-    # )
     if p_args.optimize:
         fitting()
 
     if p_args.analysis:
         run_analysis()
 
-    if not p_args.simulation and not p_args.analysis and not is_running_in_pycharm:
-        parser.print_help()
-
-    if is_running_in_pycharm:
-        run_analysis()
+    # if not p_args.simulation and not p_args.analysis and not is_running_in_pycharm:
+    #     parser.print_help()
+    #
+    # if is_running_in_pycharm:
+    #     run_analysis()

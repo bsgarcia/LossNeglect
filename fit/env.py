@@ -37,83 +37,49 @@ class Environment:
             n_options=self.n_options,
             n_conds=4
         )
-
-        print(self.cognitive_params)
-
-        choices = np.zeros(self.t_max)
-
-        for t in range(self.t_max):
-
-            # switch condition
-            self.p = self.dic_conds[t]['p'].copy()
-            self.rewards = self.dic_conds[t]['rewards'].copy()
-
-            # make agent play by using subject'choice
-            cond = self.conds[t]
-            choice = agent.choice(t=t, cond=cond)
-            reward = self.play(choice)
-            agent.save(choice=choice, t=t, reward=reward, cond=cond)
-
-            if t != self.t_max - 1:
-                agent.learn(choice=choice, t=t, cond=cond)
-
-            choices[t] = choice
-
-        # self.plot(results=choices)
-
-        choices[choices == 0] = -1
-        choices = choices[self.data[:, 4] != 0]
-        self.data[:, 4] = self.data[self.data[:, 4] != 0, 4]
-        print(sum(choices == self.data[:, 4]) / self.t_max)
-
-    def run_fit(self):
-
-        agent = self.model(
-            alpha=self.cognitive_params.get('alpha'),
-            beta=self.cognitive_params.get('beta'),
-            phi=self.cognitive_params.get('phi'),
-            q=self.cognitive_params.get('q'),
-            t_max=self.t_max,
-            n_options=self.n_options,
-            n_conds=4
-        )
         # mapping column 4 to choice variable
-        col = 4
+        c_col = 4
+        r_col = 7
 
-        values = np.zeros(self.t_max, dtype=float)
+        neg_log_likelihood = 0
 
         for t in range(self.t_max):
 
-            # switch condition
-            self.p = self.dic_conds[t]['p'].copy()
-            self.rewards = self.dic_conds[t]['rewards'].copy()
+            self.switch_condition(t)
 
-            # make agent play by using subject'choice
-            choice = 1 if self.data[t, col] else -1 if not self.data[t, col] else 0
+            # make agent play by using subject'choice and reward
+            choice = 1 if self.data[t, c_col] else -1 if not self.data[t, c_col] else 0
+            win = int(self.data[t, r_col] > 0)
             cond = self.conds[t]
 
             if choice != -1:
 
-                reward = self.play(choice)
+                reward = self.play(choice, win)
                 agent.save(choice=choice, t=t, reward=reward, cond=cond)
 
                 if t != self.t_max - 1:
                     agent.learn(choice=choice, t=t, cond=cond)
 
-                values[t] = agent.memory['p_softmax'][t, choice, cond]
-
-            else:
-                values[t] = choice
+                neg_log_likelihood += np.log(
+                    agent.memory['p_softmax'][t, choice, cond] + 1e-10
+                )
 
         # print(-sum(values[values != -1]))
-        return -sum(np.log(values[values != -1] + 10e-6))
+        return -neg_log_likelihood
 
-    def play(self, choice):
+    def switch_condition(self, t):
 
-        return self.rewards[choice][np.random.choice(
-            [0, 1],
-            p=self.p[choice]
-        )]
+        # switch condition
+        self.p = self.dic_conds[t]['p'].copy()
+        self.rewards = self.dic_conds[t]['rewards'].copy()
+
+    def play(self, choice, win):
+
+        return self.rewards[choice][win]
+        #[[np.random.choice(
+            # [0, 1],
+            # p=self.p[choice]
+        # )]
 
     def plot(self, results):
 
