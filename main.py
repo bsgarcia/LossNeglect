@@ -165,6 +165,7 @@ def run_subject(
 
     # fit Qlearning
     qlearning_best = pyfmincon.opt.fmincon(f, x0=x0, lb=lb, ub=ub, options=options)
+    print(qlearning_best)
 
     # # fit AsymmetricQLearning
     # asymmetric_trials = Trials()
@@ -235,12 +236,13 @@ def run_subject(
 
 def fitting():
 
-    # run_subject(file=g.f_names[0])
+
     pyfmincon.opt.start()
 
-    with mp.Pool() as p:
-        for _ in p.imap_unordered(run_subject, g.f_names):
-            pass
+    run_subject(file=g.f_names[0])
+    # with mp.Pool() as p:
+    #     for _ in p.imap_unordered(run_subject, g.f_names):
+    #         pass
 
     pyfmincon.opt.stop()
 
