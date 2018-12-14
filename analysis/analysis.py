@@ -11,21 +11,10 @@ def load(fname):
         return pickle.load(f)
 
 
-def kmap(model):
-    return {
-        'QLearningAgent': 'qlearning',
-        'PerseverationQLearningAgent': 'perseveration',
-        'PriorQLearningAgent': 'prior',
-        'FullQLearningAgent': 'full',
-        'AsymmetricQLearningAgent': 'asymmetric'
-    }[model]
-
-
 def params_model_comparisons():
 
-    data = [load(f'fit/data/experiment_2_fit/{fname}')
-            for fname in os.listdir('fit/data/experiment_2_fit') if fname[-1] == "p"]
-
+    data = [load(f'fit/data/experiment_1_fit/{fname}')
+            for fname in os.listdir('fit/data/experiment_1_fit') if fname[-1] == "p"]
     models = params['cognitive_params'].keys()
 
     new_data = {}
@@ -40,14 +29,15 @@ def params_model_comparisons():
                 new_data_model[f'{k}0'] = []
                 new_data_model[f'{k}1'] = []
                 continue
-            elif k == "beta":
-                continue
 
             new_data_model[k] = []
 
         for d in data:
             for k in new_data_model.keys():
-                new_data_model[k].append(d[kmap(model)][k])
+                if k == "beta":
+                    new_data_model[k].append([1/d[model][k]])
+                else:
+                    new_data_model[k].append(d[model][k])
 
         mean = {k: np.mean(v) for k, v in new_data_model.items()}
         std = {k: sp.sem(v) for k, v in new_data_model.items()}
@@ -160,6 +150,7 @@ def run():
     # correct_choice_comparison()
     # reward_model_comparison()
     params_model_comparisons()
+
 
 if __name__ == '__main__':
     exit('Please run the main.py script.')

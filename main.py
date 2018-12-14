@@ -1,13 +1,10 @@
 #!/usr/bin/python3.6
+import pickle
 import argparse
 import os
 import numpy as np
-import multiprocessing as mp
 import tqdm
-import pickle
 import scipy.io
-import scipy.optimize
-import matplotlib.pyplot as plt
 import pyfmincon
 import pyfmincon.opt
 
@@ -21,9 +18,8 @@ from simulation.models import (
     PriorQLearningAgent,
     FullQLearningAgent)
 
-
-
 import warnings
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
@@ -33,230 +29,159 @@ class Globals:
     class used in order to
     declare global variables
     accessible from the whole script.
-    Instantiated after if __name__ == '__main__'.
     """
 
     # Continuous parameters bounds
     # --------------------------------------------------------------------- #
-    alpha = (0, 1)
-    alpha0 = (0, 1)
-    alpha1 = (0, 1)
+    alpha = (1/1000, 1)
     beta = (1/1000, 1000)
     phi = (-10, 10)
     q = (-1, 1)
-    # --------------------------------------------------------------------- #
 
     qlearning_params = {
-            'model': QLearningAgent,
-            'labels': ['alpha', 'beta'],
-            'guesses': np.array([0.2, 50]),
-            'bounds':  [alpha, beta]
+        'model': QLearningAgent,
+        'labels': ['alpha', 'beta'],
+        'guesses': np.array([0.5, 50]),
+        'bounds': np.array([alpha, beta])
     }
 
     asymmetric_params = {
-            'model': AsymmetricQLearningAgent,
-            'labels': ['alpha0', 'alpha1', 'beta'],
-            'guesses': np.array([0.3, 0.6, 50]),
-            'bounds':  [alpha, alpha, beta]
+        'model': AsymmetricQLearningAgent,
+        'labels': ['alpha0', 'alpha1', 'beta'],
+        'guesses': np.array([0.5, 0.5, 1]),
+        'bounds': np.array([alpha, alpha, beta])
     }
 
     perseveration_params = {
-            'model': PerseverationQLearningAgent,
-            'labels': ['alpha', 'beta', 'phi'],
-            'guesses': np.array([0.5, 50, 5]),
-            'bounds':  [alpha, beta, phi]
+        'model': PerseverationQLearningAgent,
+        'labels': ['alpha', 'beta', 'phi'],
+        'guesses': np.array([0.5, 50, 5]),
+        'bounds': np.array([alpha, beta, phi])
     }
 
     prior_params = {
-            'model': PriorQLearningAgent,
-            'labels': ['alpha', 'beta', 'q'],
-            'guesses': np.array([0.5, 50, 0]),
-            'bounds':  [alpha, beta, q]
+        'model': PriorQLearningAgent,
+        'labels': ['alpha', 'beta', 'q'],
+        'guesses': np.array([0.5, 50, 0]),
+        'bounds': np.array([alpha, beta, q])
     }
 
     full_params = {
-            'model': FullQLearningAgent,
-            'labels': ['alpha0', 'alpha1', 'beta', 'phi,' 'q'],
-            'guesses': np.array([0.5, 0.5, 50, 5, 0]),
-            'bounds':  [alpha, alpha, beta, phi, q]
+        'model': FullQLearningAgent,
+        'labels': ['alpha0', 'alpha1', 'beta', 'phi', 'q'],
+        'guesses': np.array([0.5, 0.5, 50, 5, 0]),
+        'bounds': np.array([alpha, alpha, beta, phi, q])
     }
 
-    def __init__(
-        self,
-        data_path='fit/data/experiment_2/',
-        save_path='fit/data/experiment_2_fit/',
-        max_evals=10000
-    ):
+    model_params = [
+        qlearning_params,
+        asymmetric_params,
+        perseveration_params,
+        prior_params,
+        full_params
+    ]
 
-        self.data_path = os.path.abspath(data_path)
-        self.save_path = os.path.abspath(save_path)
-        self.f_names = sorted([f for f in os.listdir(self.data_path)])
-        self.n = len(self.f_names)
+    data_path = os.path.abspath('fit/data/experiment_1/')
+    save_path = os.path.abspath('fit/data/experiment_1_fit/')
 
-        self.max_evals = max_evals
-        self.trials_pbar = None
+    file = os.path.abspath('fit/data/pooled/experiment1.p')
 
-    def init_pbar(self):
+    with open(file, 'rb') as f:
+        data = pickle.load(f)
 
-        self.trials_pbar = tqdm.tqdm(total=self.max_evals, desc="Optimizing")
+    n_subjects = len(data)
 
+    max_evals = 10000
 
-def run_fit(x0):
-
-    # --------------------------------------------------------------------- #
-    model = AsymmetricQLearningAgent
-    f_name = "ASsub102Session2.mat"
-    cog_values = x0
-    cog_label = "alpha0", "alpha1", "beta"
-    cognitive_params = {k: v for k, v in zip(cog_label, cog_values)}
-
-    if 'alpha0' in cognitive_params:
-        cognitive_params['alpha'] = np.array([
-            cognitive_params['alpha0'],
-            cognitive_params['alpha1'],
-        ])
-
-    p = params.copy()
-
-    # --------------------------------------------------------------------- #
-
-    p['data'] = scipy.io.loadmat(f"fit/data/experiment_2/{f_name}")['data'][0][0]
-    p['cognitive_params'] = cognitive_params.copy()
-    p['model'] = model
-
-    p['t_max'] = len(p['data'][:, 0])
-    p['conds'] = p['data'][:, 2].flatten().astype(int) - 1
-    p['dic_conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
-
-    # --------------------------------------------------------------------- #
-
-    e = fit.env.Environment(**p)
-    results = e.run()
-
-    return results
-
-
-def run_subject(
-        file,
-        qlearning_params=Globals.qlearning_params,
-        asymmetric_params=Globals.asymmetric_params,
-        perseveration_params=Globals.perseveration_params,
-        prior_params=Globals.prior_params,
-        full_params=Globals.full_params):
-
-    # if os.path.exists(f'{g.save_path}/{file}'):
-    #     print('File already exists.')
-    #     return
-
-    # ---- set options ----
-    f = 'main.run_fit'
-    x0 = np.array([0.5, 0.5, 50])
-    lb = np.array([1/1000, 1/1000, 1/1000])
-    ub = np.array([1, 1, 1000])
+    subject_ids = data.keys()
 
     options = {
         'AlwaysHonorConstraints': 'bounds',
         # 'display': 'iter-detailed',
-        'MaxIter': 20000,
-        'MaxFunEvals': 20000,
+        'MaxIter': max_evals,
+        'MaxFunEvals': max_evals,
         'display': 'off',
         # 'Diagnostics': 'on'
     }
 
-    # fit Qlearning
-    qlearning_best = pyfmincon.opt.fmincon(f, x0=x0, lb=lb, ub=ub, options=options)
-    print(qlearning_best)
 
-    # # fit AsymmetricQLearning
-    # asymmetric_trials = Trials()
-    # asymmetric_best = hp.fmin(
-    #     fn=run_fit,
-    #     params=asymmetric_params + f_name,
-    #     algo=hp.tpe.suggest,
-    #     max_evals=g.max_evals,
-    #     trials=asymmetric_trials
-    # )
-    # asymmetric_best['likelihood'] = min(asymmetric_trials.losses())
-    # g.trials_pbar.update()
-    #
-    # # fit PerseverationQLearning
-    # perseveration_trials = Trials()
-    # perseveration_best = hp.fmin(
-    #     fn=run_fit,
-    #     params=perseveration_params + f_name,
-    #     algo=hp.tpe.suggest,
-    #     max_evals=g.max_evals,
-    #     trials=perseveration_trials
-    # )
-    # perseveration_best['likelihood'] = min(perseveration_trials.losses())
-    # g.trials_pbar.update()
-    #
-    # # fit PriorQLearningAgent
-    # prior_trials = Trials()
-    # prior_best = hp.fmin(
-    #     fn=run_fit,
-    #     params=prior_params + f_name,
-    #     algo=hp.tpe.suggest,
-    #     max_evals=g.max_evals,
-    #     trials=prior_trials
-    # )
-    # prior_best['likelihood'] = min(prior_trials.losses())
-    # g.trials_pbar.update()
-    #
-    # # fit FullQLearningAgent
-    # full_trials = Trials()
-    # full_best = hp.fmin(
-    #     fn=run_fit,
-    #     params=full_params + f_name,
-    #     algo=hp.tpe.suggest,
-    #     max_evals=g.max_evals,
-    #     trials=full_trials
-    # )
-    #
-    # full_best['likelihood'] = min(full_trials.losses())
-    # g.trials_pbar.update()
+def run_fit(x0, optional_args):
 
-    # with open(f'{g.save_path}/{file}'.replace('.mat', '.p'), 'wb') as f:
-    #     pickle.dump(dict(
-    #         qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
-            # asymmetric=asymmetric_best,
-            # perseveration=perseveration_best,
-            # prior=prior_best,
-            # full=full_best
-        # ), file=f)
+    # --------------------------------------------------------------------- #
+    subject_id = optional_args[0]
+    model_id = optional_args[1]
+    # --------------------------------------------------------------------- #
+    model_param = Globals.model_params[model_id]
+    cognitive_params = {k: v for k, v in zip(model_param['labels'], x0)}
+    if 'alpha0' in cognitive_params:
+        cognitive_params['alpha'] = np.array([
+            cognitive_params['alpha0'],
+            cognitive_params['alpha1']
+        ])
+    # --------------------------------------------------------------------- #
+    p = params.copy()
+    p['data'] = Globals.data[subject_id]
+    p['model'] = model_param['model']
+    p['cognitive_params'] = cognitive_params.copy()
+    p['t_max'] = len(p['data'][:, 0])
+    p['conds'] = p['data'][:, 2].flatten().astype(int) - 1
+    p['dic_conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
+    # --------------------------------------------------------------------- #
+    e = fit.env.Environment(**p)
+    neg_log_likelihood = e.run()
+    return neg_log_likelihood
 
-    # scipy.io.savemat(f'{g.save_path}/{file}', dict(
-    #     qlearning={k: v for k, v in zip(qlearning_params['labels'], qlearning_best.x)},
-        # asymmetric=asymmetric_best,
-        # perseveration=perseveration_best,
-        # prior=prior_best,
-        # full=full_best
-    # ))
+
+def run_fmincon(f, model_params, options, optional_args):
+
+    # ---- set options ------- # 
+    x0 = model_params['guesses']
+    lb = [i[0] for i in model_params['bounds']]
+    ub = [i[1] for i in model_params['bounds']]
+
+    # Minimize
+    xopt = pyfmincon.opt.fmincon(f, x0=x0, lb=lb, ub=ub,
+                                 options=options, optional_args=optional_args)
+
+    return {k: v for k, v in zip(model_params['labels'], xopt)}
+
+
+def run_subject(subject_id):
+
+    to_save = {}
+
+    for model_id, model_params in enumerate(Globals.model_params):
+
+        to_save[model_params['model'].__name__] = run_fmincon(
+                f='main.run_fit',
+                model_params=model_params,
+                options=Globals.options,
+                optional_args=[subject_id, model_id]
+        )
+
+    with open(f'{Globals.save_path}/{subject_id}.p', 'wb') as f:
+        pickle.dump(to_save, file=f)
+
+    scipy.io.savemat(mdict=to_save, file_name=f'{Globals.save_path}/{subject_id}.mat')
 
 
 def fitting():
 
-
     pyfmincon.opt.start()
 
-    run_subject(file=g.f_names[0])
-    # with mp.Pool() as p:
-    #     for _ in p.imap_unordered(run_subject, g.f_names):
-    #         pass
+    for idx in tqdm.tqdm(Globals.subject_ids, desc="Optimizing"):
+        run_subject(subject_id=idx)
 
     pyfmincon.opt.stop()
 
 
 def run_analysis():
-
     tqdm.tqdm.write('Generating graphs...')
 
     analysis.run()
 
 
 if __name__ == '__main__':
-
-    g = Globals()
 
     # Parse cli arguments
     # ------------------------------------------------------------ #

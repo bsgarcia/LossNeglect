@@ -14,7 +14,6 @@ class QLearningAgent:
     def __init__(self, alpha, beta, t_max, n_options, n_conds, **kwargs):
 
         self.alpha = alpha
-
         self.beta = beta
 
         self.q = np.zeros((t_max, n_options, n_conds), dtype=float)

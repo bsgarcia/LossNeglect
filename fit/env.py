@@ -1,6 +1,5 @@
 #!/usr/bin/python3.6
 import numpy as np
-import pickle
 
 
 class Environment:
@@ -45,7 +44,7 @@ class Environment:
 
         for t in range(self.t_max):
 
-            self.switch_condition(t)
+            self.set_condition(t)
 
             # make agent play by using subject'choice and reward
             choice = 1 if self.data[t, c_col] else -1 if not self.data[t, c_col] else 0
@@ -64,17 +63,15 @@ class Environment:
                     agent.memory['p_softmax'][t, choice, cond] + 1e-10
                 )
 
-        # print(-sum(values[values != -1]))
         return -neg_log_likelihood
 
-    def switch_condition(self, t):
+    def set_condition(self, t):
 
         # switch condition
         self.p = self.dic_conds[t]['p'].copy()
         self.rewards = self.dic_conds[t]['rewards'].copy()
 
     def play(self, choice, win):
-
         return self.rewards[choice][win]
         #[[np.random.choice(
             # [0, 1],

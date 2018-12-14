@@ -1,5 +1,5 @@
 function [xopt] = optimize(funcname, x0, A, b, ...
-    Aeq, beq, lb, ub, nonlcon, opt_struct, gradients)
+    Aeq, beq, lb, ub, nonlcon, opt_struct, gradients, optional_args)
 
     % Written by Andrew Ning.  Feb 2016.
     % FLOW Lab, Brigham Young University.
@@ -16,16 +16,11 @@ function [xopt] = optimize(funcname, x0, A, b, ...
         options = optimoptions(options, 'GradObj', 'on', 'GradConstr', 'on');
     end
 
-    % shared variables
-    xcheck = 2*ub;
-    cin = [];
-    gcin = [];
-
     % run fmincon
     xopt = fmincon(@obj, x0, A, b, Aeq, beq, lb, ub, nonlcon, options);
 
     % ---------- Objective Function ------------------
     function [xopt] = obj(x0)
-        eval(['xopt = py.', funcname, '(x0);'])
+        eval(['xopt = py.', funcname, '(x0, optional_args);'])
     end
 end

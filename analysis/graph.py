@@ -9,29 +9,28 @@ def bar_plot_model_comparison(data, data_scatter, ylabel):
     # get x of bars for scatters
     bars = []
 
-    plt.style.use('default')
+    # plt.style.use('default')
 
     # params
     ind = np.arange(len(data))
     width = 0.2
     opacity = 0.8
 
-    plt.figure(figsize=(20, 10))
+    plt.figure()
     ax = plt.subplot()
 
     # remove some axis
     ax.spines['top'].set_visible(0)
     ax.spines['right'].set_visible(0)
-    # ax.spines['left'].set_visible(0)
-    ax.spines['bottom'].set_visible(0)
-
+    ax.spines['left'].set_visible(0)
+    # ax.spines['bottom'].set_visible(0)
 
     # grid in bg
-    # ax.set_axisbelow(True)
-    # ax.yaxis.grid(color='gray', alpha=0.3, linestyle='dashed')
+    ax.set_axisbelow(True)
+    ax.yaxis.grid(color='gray', alpha=0.2, zorder=2)
 
     ax.set_ylabel(ylabel)
-    ax.set_ylim(-.35, 1)
+    ax.set_ylim(0, 1)
     # ax.set_title('Rewards over 100 trials for each learning model')
     # ax.set_xticks(ind + width)
     # ax.tick_params(axis='both', which='both', length=0)
@@ -58,14 +57,12 @@ def bar_plot_model_comparison(data, data_scatter, ylabel):
             width,
             yerr=stds,
             label=label,
-            alpha=0.6,
             zorder=0,
             edgecolor='white',
-            error_kw=dict(ecolor='black', capsize=4, capthick=1.5, alpha=1, linewidth=1.5, zorder=2)
+            error_kw=dict(ecolor='black', capsize=4, capthick=1.5, alpha=1, linewidth=1.5, zorder=1)
         )
 
         # bars.append([rect.get_x() for rect in rects])
-
     # Add scatter points
     # in order to have an idea of the distribution
     # idx = iter([0, ] * 3 + [1, ] * 3 + [2, ] * 3)
@@ -80,17 +77,17 @@ def bar_plot_model_comparison(data, data_scatter, ylabel):
     ax.set_xticks(xticks)
 
     for i in range(len(xlabels)):
+        if xlabels[i] == 'q':
+            continue
         if xlabels[i][:-1] in 'alpha':
             xlabels[i] = f"$\\{xlabels[i]}$".replace("0", "-").replace("1", "+")
-        elif xlabels[i] in 'phi':
+        elif xlabels[i] in ('phi', ):
             xlabels[i] = f"$\\{xlabels[i]}$"
 
     ax.set_xticklabels(xlabels)
-
     ax.legend()
     xmin, xmax = ax.get_xlim()
-
-    ax.hlines(0, xmin=xmin, xmax=xmax, lw=0.8)
+    # ax.hlines(0, xmin=xmin, xmax=xmax, lw=0.8)
     plt.show()
 
 
