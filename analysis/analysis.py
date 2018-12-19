@@ -11,10 +11,11 @@ def load(fname):
         return pickle.load(f)
 
 
-def params_model_comparisons():
+def params_model_comparisons(experiment_id=2):
 
-    data = [load(f'fit/data/experiment_1_fit/{fname}')
-            for fname in os.listdir('fit/data/experiment_1_fit') if fname[-1] == "p"]
+    data = [load(f'fit/data/experiment{experiment_id}_fit/{fname}')
+            for fname in os.listdir(f'fit/data/experiment{experiment_id}_fit') if fname[-1] == "p"]
+
     models = params['cognitive_params'].keys()
 
     new_data = {}
@@ -31,13 +32,14 @@ def params_model_comparisons():
                 continue
 
             new_data_model[k] = []
-
+        new_data_model['log'] = []
         for d in data:
             for k in new_data_model.keys():
-                if k == "beta":
-                    new_data_model[k].append([1/d[model][k]])
-                else:
-                    new_data_model[k].append(d[model][k])
+                new_data_model[k].append(d[model][k])
+
+        for k, v in new_data_model.items():
+            if k in ('beta', 'phi', 'log'):
+                new_data_model[k] = np.asarray(new_data_model[k]) * 1/max(new_data_model[k])
 
         mean = {k: np.mean(v) for k, v in new_data_model.items()}
         std = {k: sp.sem(v) for k, v in new_data_model.items()}

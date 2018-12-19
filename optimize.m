@@ -1,4 +1,4 @@
-function [xopt] = optimize(funcname, x0, A, b, ...
+function [xopt, fval] = optimize(funcname, x0, A, b, ...
     Aeq, beq, lb, ub, nonlcon, opt_struct, gradients, optional_args)
 
     % Written by Andrew Ning.  Feb 2016.
@@ -10,15 +10,14 @@ function [xopt] = optimize(funcname, x0, A, b, ...
     for i = 1:length(names)
         options = optimoptions(options, names{i}, opt_struct.(names{i}));
     end
-
+%
     % check if gradients provided
-    if gradients
-        options = optimoptions(options, 'GradObj', 'on', 'GradConstr', 'on');
-    end
+%    if gradients
+%        options = optimoptions(options, 'GradObj', 'on', 'GradConstr', 'on');
+%    end
 
     % run fmincon
-    xopt = fmincon(@obj, x0, A, b, Aeq, beq, lb, ub, nonlcon, options);
-
+    [xopt, fval] = fmincon(@obj, x0, A, b, Aeq, beq, lb, ub, nonlcon, options);
     % ---------- Objective Function ------------------
     function [xopt] = obj(x0)
         eval(['xopt = py.', funcname, '(x0, optional_args);'])

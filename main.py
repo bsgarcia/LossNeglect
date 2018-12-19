@@ -24,7 +24,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 class Globals:
-
     """
     class used in order to
     declare global variables
@@ -33,44 +32,51 @@ class Globals:
 
     # Continuous parameters bounds
     # --------------------------------------------------------------------- #
-    alpha = (1/1000, 1)
-    beta = (1/1000, 1000)
-    phi = (-10, 10)
-    q = (-1, 1)
+    alpha_bounds = (1/1000, 1)
+    beta_bounds = (1/1000, 1000)
+    phi_bounds = (1/1000, 1000)
+    q_bounds = (-1, 1)
+
+    # parameters initial guesses
+    # --------------------------------------------------------------------- #
+    alpha_guess = 0.5
+    beta_guess = 1
+    phi_guess = 1
+    q_guess = 0
 
     qlearning_params = {
         'model': QLearningAgent,
-        'labels': ['alpha', 'beta'],
-        'guesses': np.array([0.5, 50]),
-        'bounds': np.array([alpha, beta])
+        'labels': ['alpha', 'beta', 'log'],
+        'guesses': np.array([alpha_guess, beta_guess]),
+        'bounds': np.array([alpha_bounds, beta_bounds])
     }
 
     asymmetric_params = {
         'model': AsymmetricQLearningAgent,
-        'labels': ['alpha0', 'alpha1', 'beta'],
-        'guesses': np.array([0.5, 0.5, 1]),
-        'bounds': np.array([alpha, alpha, beta])
+        'labels': ['alpha0', 'alpha1', 'beta', 'log'],
+        'guesses': np.array([alpha_guess, alpha_guess, beta_guess]),
+        'bounds': np.array([alpha_bounds, alpha_bounds, beta_bounds])
     }
 
     perseveration_params = {
         'model': PerseverationQLearningAgent,
-        'labels': ['alpha', 'beta', 'phi'],
-        'guesses': np.array([0.5, 50, 5]),
-        'bounds': np.array([alpha, beta, phi])
+        'labels': ['alpha', 'beta', 'phi', 'log'],
+        'guesses': np.array([alpha_guess, beta_guess, phi_guess]),
+        'bounds': np.array([alpha_bounds, beta_bounds, phi_bounds])
     }
 
     prior_params = {
         'model': PriorQLearningAgent,
-        'labels': ['alpha', 'beta', 'q'],
-        'guesses': np.array([0.5, 50, 0]),
-        'bounds': np.array([alpha, beta, q])
+        'labels': ['alpha', 'beta', 'q', 'log'],
+        'guesses': np.array([alpha_guess, beta_guess, q_guess]),
+        'bounds': np.array([alpha_bounds, beta_bounds, q_bounds])
     }
 
     full_params = {
         'model': FullQLearningAgent,
-        'labels': ['alpha0', 'alpha1', 'beta', 'phi', 'q'],
-        'guesses': np.array([0.5, 0.5, 50, 5, 0]),
-        'bounds': np.array([alpha, alpha, beta, phi, q])
+        'labels': ['alpha0', 'alpha1', 'beta', 'phi', 'q', 'log'],
+        'guesses': np.array([alpha_guess, alpha_guess, beta_guess, phi_guess, q_guess]),
+        'bounds': np.array([alpha_bounds, alpha_bounds, beta_bounds, phi_bounds, q_bounds])
     }
 
     model_params = [
@@ -81,10 +87,12 @@ class Globals:
         full_params
     ]
 
-    data_path = os.path.abspath('fit/data/experiment_1/')
-    save_path = os.path.abspath('fit/data/experiment_1_fit/')
+    experiment_id = 2
 
-    file = os.path.abspath('fit/data/pooled/experiment1.p')
+    data_path = os.path.abspath(f'fit/data/experiment{experiment_id}/')
+    save_path = os.path.abspath(f'fit/data/experiment{experiment_id}_fit/')
+
+    file = os.path.abspath(f'fit/data/pooled/experiment{experiment_id}.p')
 
     with open(file, 'rb') as f:
         data = pickle.load(f)
@@ -96,17 +104,17 @@ class Globals:
     subject_ids = data.keys()
 
     options = {
-        'AlwaysHonorConstraints': 'bounds',
+        # 'AlwaysHonorConstraints': 'bounds',
+        'Algorithm': 'interior-point',
         # 'display': 'iter-detailed',
         'MaxIter': max_evals,
-        'MaxFunEvals': max_evals,
+        # 'MaxFunEvals': max_evals,
         'display': 'off',
         # 'Diagnostics': 'on'
     }
 
 
 def run_fit(x0, optional_args):
-
     # --------------------------------------------------------------------- #
     subject_id = optional_args[0]
     model_id = optional_args[1]
@@ -123,7 +131,7 @@ def run_fit(x0, optional_args):
     p['data'] = Globals.data[subject_id]
     p['model'] = model_param['model']
     p['cognitive_params'] = cognitive_params.copy()
-    p['t_max'] = len(p['data'][:, 0])
+    p['t_max'] = int(max(p['data'][:, 1]))
     p['conds'] = p['data'][:, 2].flatten().astype(int) - 1
     p['dic_conds'] = [cond[int(i) - 1] for i in p['data'][:, 2]]
     # --------------------------------------------------------------------- #
@@ -140,23 +148,21 @@ def run_fmincon(f, model_params, options, optional_args):
     ub = [i[1] for i in model_params['bounds']]
 
     # Minimize
-    xopt = pyfmincon.opt.fmincon(f, x0=x0, lb=lb, ub=ub,
-                                 options=options, optional_args=optional_args)
-
-    return {k: v for k, v in zip(model_params['labels'], xopt)}
+    xopt, fval = pyfmincon.opt.fmincon(f, x0=x0, lb=lb, ub=ub,
+                                       options=options, optional_args=optional_args)
+    values = [item for sublist in [xopt, [fval]] for item in sublist]
+    return {k: v for k, v in zip(model_params['labels'], values)}
 
 
 def run_subject(subject_id):
-
     to_save = {}
 
     for model_id, model_params in enumerate(Globals.model_params):
-
         to_save[model_params['model'].__name__] = run_fmincon(
-                f='main.run_fit',
-                model_params=model_params,
-                options=Globals.options,
-                optional_args=[subject_id, model_id]
+            f='main.run_fit',
+            model_params=model_params,
+            options=Globals.options,
+            optional_args=[subject_id, model_id]
         )
 
     with open(f'{Globals.save_path}/{subject_id}.p', 'wb') as f:
@@ -166,11 +172,10 @@ def run_subject(subject_id):
 
 
 def fitting():
-
     pyfmincon.opt.start()
 
-    for idx in tqdm.tqdm(Globals.subject_ids, desc="Optimizing"):
-        run_subject(subject_id=idx)
+    for subject_id in tqdm.tqdm(Globals.subject_ids, desc='Optimizing'):
+        run_subject(subject_id)
 
     pyfmincon.opt.stop()
 
@@ -202,8 +207,8 @@ if __name__ == '__main__':
     if p_args.analysis:
         run_analysis()
 
-    # if not p_args.simulation and not p_args.analysis and not is_running_in_pycharm:
-    #     parser.print_help()
-    #
-    # if is_running_in_pycharm:
-    #     run_analysis()
+    if not any(vars(p_args).values()) and not is_running_in_pycharm:
+        parser.print_help()
+
+    if is_running_in_pycharm:
+        run_analysis()

@@ -47,14 +47,20 @@ class Environment:
             self.set_condition(t)
 
             # make agent play by using subject'choice and reward
-            choice = 1 if self.data[t, c_col] else -1 if not self.data[t, c_col] else 0
+            if not self.data[t, c_col]:
+                choice = None
+            elif self.data[t, c_col] == -1:
+                choice = 0
+            else:
+                choice = 1
+
             win = int(self.data[t, r_col] > 0)
             cond = self.conds[t]
 
-            if choice != -1:
+            if choice is not None:
 
                 reward = self.play(choice, win)
-                agent.save(choice=choice, t=t, reward=reward, cond=cond)
+                agent.save(choice=choice, t=t, reward=self.data[t, r_col], cond=cond)
 
                 if t != self.t_max - 1:
                     agent.learn(choice=choice, t=t, cond=cond)
@@ -62,7 +68,6 @@ class Environment:
                 neg_log_likelihood += np.log(
                     agent.memory['p_softmax'][t, choice, cond] + 1e-10
                 )
-
         return -neg_log_likelihood
 
     def set_condition(self, t):
@@ -73,19 +78,6 @@ class Environment:
 
     def play(self, choice, win):
         return self.rewards[choice][win]
-        #[[np.random.choice(
-            # [0, 1],
-            # p=self.p[choice]
-        # )]
-
-    def plot(self, results):
-
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        ax.plot(self.data[:, 4])
-        fig, ax = plt.subplots()
-        ax.plot(results)
-        plt.show()
 
 
 if __name__ == '__main__':

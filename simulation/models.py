@@ -48,11 +48,11 @@ class QLearningAgent:
         self.q[t + 1, choice, cond] = self.q[t, choice, cond] + self.alpha * self.pe[t, choice, cond]
 
     def softmax(self, t, cond):
-        m = max(self.q[t, :, cond] * self.beta)
+        # m = max(self.q[t, :, cond] * self.beta)
         return np.exp(
-            self.beta * self.q[t, :, cond] - m
+            self.beta * self.q[t, :, cond]
         ) / np.sum(np.exp(
-            self.beta * self.q[t, :, cond] - m
+            self.beta * self.q[t, :, cond]
         ))
 
 

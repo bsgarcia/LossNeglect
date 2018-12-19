@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gd
 
 
-def bar_plot_model_comparison(data, data_scatter, ylabel):
+def bar_plot_model_comparison(data, data_scatter, ylabel, title=None):
 
     # get x of bars for scatters
     bars = []
@@ -16,7 +16,7 @@ def bar_plot_model_comparison(data, data_scatter, ylabel):
     width = 0.2
     opacity = 0.8
 
-    plt.figure()
+    plt.figure(figsize=(20, 12))
     ax = plt.subplot()
 
     # remove some axis
@@ -31,11 +31,8 @@ def bar_plot_model_comparison(data, data_scatter, ylabel):
 
     ax.set_ylabel(ylabel)
     ax.set_ylim(0, 1)
-    # ax.set_title('Rewards over 100 trials for each learning model')
-    # ax.set_xticks(ind + width)
-    # ax.tick_params(axis='both', which='both', length=0)
     ax.tick_params(size=0)
-    ax.set_title('Fit parameters for exp 2 ($\\beta$ excluded bc > 100)')
+    ax.set_title('Fit parameters for exp 2')
 
     xlabels = []
     xticks = []
@@ -77,16 +74,16 @@ def bar_plot_model_comparison(data, data_scatter, ylabel):
     ax.set_xticks(xticks)
 
     for i in range(len(xlabels)):
-        if xlabels[i] == 'q':
+        if xlabels[i] in ('q', 'log'):
             continue
         if xlabels[i][:-1] in 'alpha':
             xlabels[i] = f"$\\{xlabels[i]}$".replace("0", "-").replace("1", "+")
-        elif xlabels[i] in ('phi', ):
+        elif xlabels[i] in ('phi', 'beta'):
             xlabels[i] = f"$\\{xlabels[i]}$"
 
     ax.set_xticklabels(xlabels)
     ax.legend()
-    xmin, xmax = ax.get_xlim()
+    # xmin, xmax = ax.get_xlim()
     # ax.hlines(0, xmin=xmin, xmax=xmax, lw=0.8)
     plt.show()
 
