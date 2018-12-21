@@ -21,6 +21,7 @@ from simulation.models import (
     AsymmetricPriorQLearning,
     FullQLearning)
 import multiprocessing as ml
+import mail
 
 import warnings
 
@@ -58,7 +59,7 @@ class Globals:
     # --------------------------------------------------------------------- #
     alpha_guess = 0.5
     beta_guess = 1
-    phi_guess = 1
+    phi_guess = 0
     q_guess = 0
     q_fixed_guess = -1
 
@@ -113,8 +114,8 @@ class Globals:
         full_params
     ]
 
-    fit_subjects = True
-    fit_agents = False
+    fit_subjects = False
+    fit_agents = True
 
     experiment_id = '_full'
     fit_condition = 'risk'
@@ -255,6 +256,19 @@ def run_fit_subject(subject_id):
     # scipy.io.savemat(mdict=to_save, file_name=f'{Globals.save_path}/{subject_id}.mat')
 
 
+def fitting():
+
+    pyfmincon.opt.start()
+
+    for subject_id in tqdm.tqdm(Globals.subject_ids, desc='Optimizing'):
+        run_fit_subject(subject_id)
+    data = load_agent_fit(Globals.save_path)
+    with open(Globals.save_path + '/pooled.p', 'wb') as f:
+        pickle.dump(file=f, obj=data)
+    mail.auto_send(job_name='fit_recover', main_file=__name__, attachment=Globals.save_path + '/pooled.p')
+    pyfmincon.opt.stop()
+
+
 def run_simulations():
 
     #  --------------------- Run Status quo 2 ----------------------------------- # 
@@ -313,16 +327,6 @@ def run_simulations():
 
         env = simulation.env.Environment(**p)
         env.run()
-
-
-def fitting():
-
-    pyfmincon.opt.start()
-
-    for subject_id in tqdm.tqdm(Globals.subject_ids, desc='Optimizing'):
-        run_fit_subject(subject_id)
-
-    pyfmincon.opt.stop()
 
 
 def run_analysis():
