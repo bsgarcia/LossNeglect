@@ -2,96 +2,101 @@
 import numpy as np
 import pickle
 
-from simulation.models import (QLearningAgent,
-                               AsymmetricQLearningAgent,
-                               PerseverationQLearningAgent,
-                               PriorQLearningAgent)
+from simulation.models import (QLearning,
+                               AsymmetricQLearning,
+                               PerseverationQLearning,
+                               PriorQLearning,
+                               AsymmetricPriorQLearning,
+                               FullQLearning)
 
 
 class Environment:
 
-    def __init__(self, pbar=None, **kwargs):
+    def __init__(self, **kwargs):
 
         self.params = kwargs.copy()
-        self.pbar = pbar
 
-        self.n_sessions = kwargs.get('n_sessions')
         self.t_max = kwargs.get('t_max')
 
         self.cognitive_params = kwargs['cognitive_params']
 
-        self.condition = kwargs.get('condition')
+        self.n_conds = kwargs.get('n_conds')
+        self.conds = kwargs.get('conds')
+        self.dic_conds = kwargs.get('dic_conds')
+
         self.n_options = kwargs.get('n_options')
-        self.rewards = kwargs.get('rewards')
         self.t_when_reversal_occurs = kwargs.get('t_when_reversal_occurs')
+
+        self.subject_id = kwargs.get('subject_id')
+
+        self.condition = kwargs.get('condition')
+        self.experiment_id = kwargs.get('experiment_id')
+
+        self.rewards = kwargs.get('rewards')
         self.p = kwargs.get('p')
-
-        self.n_agents = kwargs['n_agents']
-
-        self.agent = None
 
     def run(self):
 
         data = {}
 
-        for model in (QLearningAgent,
-                      AsymmetricQLearningAgent,
-                      PerseverationQLearningAgent,
-                      PriorQLearningAgent):
+        for model in (QLearning,
+                      AsymmetricQLearning,
+                      PerseverationQLearning,
+                      PriorQLearning,
+                      AsymmetricPriorQLearning,
+                      FullQLearning):
 
-            choices = np.zeros((self.n_agents, self.t_max), dtype=int)
-            rewards = np.zeros((self.n_agents, self.t_max), dtype=int)
-            correct_choices = np.zeros((self.n_agents, self.t_max), dtype=int)
+            choices = np.zeros(self.t_max, dtype=int)
+            rewards = np.zeros(self.t_max, dtype=int)
+            correct_choices = np.zeros(self.t_max, dtype=int)
 
-            for n in range(self.n_agents):
+            name = model.__name__
 
-                name = model.__name__
+            agent = model(
+                alpha=self.cognitive_params[name].get('alpha'),
+                alpha0=self.cognitive_params[name].get('alpha0'),
+                alpha1=self.cognitive_params[name].get('alpha1'),
+                beta=self.cognitive_params[name].get('beta'),
+                phi=self.cognitive_params[name].get('phi'),
+                q=self.cognitive_params[name].get('q'),
+                t_max=self.t_max,
+                n_options=self.n_options,
+                n_conds=self.n_conds
+            )
 
-                agent = model(
-                    alpha=self.cognitive_params[name].get('alpha'),
-                    beta=self.cognitive_params[name].get('beta'),
-                    phi=self.cognitive_params[name].get('phi'),
-                    q=self.cognitive_params[name].get('q'),
-                    t_max=self.t_max,
-                    n_options=self.n_options,
-                )
+            for t in range(self.t_max):
 
-                for t in range(self.t_max):
+                if t in self.t_when_reversal_occurs:
+                    assert 'status_quo' in self.condition
+                    self.reversal()
 
-                    if t in self.t_when_reversal_occurs:
-                        self.p = self.p[::-1]
-                        self.rewards = self.rewards[::-1]
+                cond = self.conds[t]
 
-                    choice = agent.choice(t)
+                if self.condition == 'risk':
+                    self.set_condition(cond)
 
-                    # save that choice is correct or not
-                    correct_choices[n, t] = \
-                        sum(self.rewards[choice] * self.p[choice]) > \
-                        sum(self.rewards[int(not choice)] * self.p[int(not choice)])
+                choice = agent.choice(cond=cond, t=t)
 
-                    reward = self.play(choice)
+                # save that choice is correct or not
+                correct_choices[t] = \
+                    sum(self.rewards[choice] * self.p[choice]) > \
+                    sum(self.rewards[int(not choice)] * self.p[int(not choice)])
 
-                    agent.save(choice=choice, t=t, reward=reward)
+                reward = self.play(choice)
 
-                    if t != self.t_max - 1:
-                        agent.learn(choice=choice, t=t, reward=reward)
+                agent.save(choice=choice, t=t, reward=reward, cond=cond)
 
-                    # self.pbar.update()
+                if t != self.t_max - 1:
+                    agent.learn(choice=choice, t=t, cond=cond)
 
-                # if reversal occurred at least once
-                # we reinitialize probs and rewards
-                if len(self.t_when_reversal_occurs):
-                    self.p = self.params['p']
-                    self.rewards = self.params['rewards']
-
-                choices[n, :] = agent.memory['choices']
-                rewards[n, :] = agent.memory['rewards']
+            choices[:] = agent.memory['choices']
+            rewards[:] = agent.memory['rewards']
 
             d = {
                 model.__name__: {
                     'choices': choices,
                     'rewards': rewards,
-                    'correct_choices': correct_choices
+                    'conds': self.conds
                 }
             }
 
@@ -99,24 +104,13 @@ class Environment:
 
         self.save(data)
 
-        return self.diff_asymmetric_perseveration_score(data=data)
+    def reversal(self):
+        self.p = self.p[::-1]
+        self.rewards = self.rewards[::-1]
 
-    def diff_asymmetric_perseveration_score(self, data):
-
-        models = AsymmetricQLearningAgent.__name__, PerseverationQLearningAgent.__name__
-
-        new_data = np.zeros((self.n_agents, len(models)))
-        means = np.zeros(len(models))
-
-        for i, model in enumerate(models):
-
-            for a in range(self.n_agents):
-
-                new_data[a, i] = np.sum(data[model]['rewards'][a, :] == 1) / self.t_max
-
-            means[i] = np.mean(new_data[:, i])
-
-        return abs((-(means[0] - means[1]) ** -1) * np.std(new_data[:, 1]))
+    def set_condition(self, cond):
+        self.p = self.dic_conds[cond]['p'].copy()
+        self.rewards = self.dic_conds[cond]['rewards'].copy()
 
     def play(self, choice):
 
@@ -126,14 +120,15 @@ class Environment:
         )]
 
     def save(self, results):
+        import os.path
 
-        data = {
-            'params': self.params,
-            'condition': self.condition,
-            'results': results
-        }
+        path = f'simulation/data/experiment{self.experiment_id}_{self.condition}'
 
-        pickle.dump(obj=data, file=open(f'data/data_{self.condition}.p', 'wb'))
+        if not os.path.exists(path):
+            os.mkdir(path=path)
+
+        with open(f'{path}/{self.subject_id}.p', 'wb') as f:
+            pickle.dump(obj=results, file=f)
 
 
 if __name__ == '__main__':

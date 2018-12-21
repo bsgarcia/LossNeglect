@@ -16,14 +16,27 @@ class Environment:
 
         self.cognitive_params = kwargs['cognitive_params']
 
-        self.condition = kwargs.get('condition')
         self.n_options = kwargs.get('n_options')
 
-        self.t_when_reversal_occurs = kwargs.get('t_when_reversal_occurs')
-        self.p = None
-        self.rewards = None
-        self.dic_conds = kwargs.get('dic_conds')
-        self.conds = kwargs.get('conds')
+        self.map = {
+            1: {'choices': 6, 'conds': 2, 'rewards': 7},
+            2: {'choices': 4, 'conds': 2, 'rewards': 7},
+            '_full': {'choices': 6, 'conds': 2, 'rewards': 7},
+            # 3: {'choice'}
+        }
+
+        exp_id = kwargs.get('exp_id')
+
+        if kwargs.get('choices') is None:
+            self.choices = self.data[:, self.map[exp_id]['choices']].astype(int)
+            self.rewards = self.data[:, self.map[exp_id]['rewards']]
+            self.conds = self.data[:, self.map[exp_id]['conds']].astype(int)
+            self.mapping = True
+        else:
+            self.choices = kwargs['choices']
+            self.rewards = kwargs['rewards']
+            self.conds = kwargs['conds']
+            self.mapping = False
 
     def run(self):
 
@@ -36,50 +49,43 @@ class Environment:
             n_options=self.n_options,
             n_conds=4
         )
-        # mapping column 4 to choice variable
-        c_col = 4
-        r_col = 7
 
         neg_log_likelihood = 0
 
         for t in range(self.t_max):
 
-            self.set_condition(t)
-
+            assert self.choices[t] in [-1, 0, 1]
             # make agent play by using subject'choice and reward
-            if not self.data[t, c_col]:
-                choice = None
-            elif self.data[t, c_col] == -1:
-                choice = 0
-            else:
-                choice = 1
 
-            win = int(self.data[t, r_col] > 0)
-            cond = self.conds[t]
+            if self.mapping:
+                if self.choices[t] == 0:
+                    choice = None
+                elif self.choices[t] == -1:
+                    choice = 0
+                else:
+                    choice = 1
+                cond = self.conds[t] - 1
+            else:
+                choice = self.choices[t]
+                cond = self.conds[t]
+
+            win = int(self.rewards[t] > 0)
+            reward = 1 if win else -1
 
             if choice is not None:
 
-                reward = self.play(choice, win)
-                agent.save(choice=choice, t=t, reward=self.data[t, r_col], cond=cond)
+                agent.save(choice=choice, t=t, reward=reward, cond=cond)
 
                 if t != self.t_max - 1:
                     agent.learn(choice=choice, t=t, cond=cond)
 
+                # print(agent.memory['p_softmax'][t, choice, cond])
+
                 neg_log_likelihood += np.log(
-                    agent.memory['p_softmax'][t, choice, cond] + 1e-10
+                    agent.memory['p_softmax'][t, choice, cond]
                 )
         return -neg_log_likelihood
-
-    def set_condition(self, t):
-
-        # switch condition
-        self.p = self.dic_conds[t]['p'].copy()
-        self.rewards = self.dic_conds[t]['rewards'].copy()
-
-    def play(self, choice, win):
-        return self.rewards[choice][win]
 
 
 if __name__ == '__main__':
     exit('Please run the main.py script.')
-    

@@ -4,6 +4,33 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gd
 
 
+def model_recovery(data, models, title):
+    fig, ax = plt.subplots()
+
+    im = ax.imshow(data)
+
+    # We want to show all ticks...
+    ax.set_xticks(np.arange(len(models)))
+    ax.set_yticks(np.arange(len(models)))
+    # ... and label them with the respective list entries
+    ax.set_xticklabels(models)
+    ax.set_yticklabels(models)
+
+    # Rotate the tick labels and set their alignment.
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+             rotation_mode="anchor")
+
+    # Loop over data dimensions and create text annotations.
+    for i in range(len(models)):
+        for j in range(len(models)):
+            text = ax.text(j, i, data[i, j],
+                           ha="center", va="center", color="w")
+
+    ax.set_title(title)
+    fig.tight_layout()
+    plt.show()
+
+
 def bar_plot_model_comparison(data, data_scatter, ylabel, title=None):
 
     # get x of bars for scatters
@@ -13,26 +40,27 @@ def bar_plot_model_comparison(data, data_scatter, ylabel, title=None):
 
     # params
     ind = np.arange(len(data))
-    width = 0.2
+    width = 0.18
     opacity = 0.8
 
-    plt.figure(figsize=(20, 12))
+    plt.figure(figsize=(28, 12))
     ax = plt.subplot()
 
     # remove some axis
     ax.spines['top'].set_visible(0)
     ax.spines['right'].set_visible(0)
     ax.spines['left'].set_visible(0)
-    # ax.spines['bottom'].set_visible(0)
+    ax.spines['bottom'].set_visible(0)
 
     # grid in bg
     ax.set_axisbelow(True)
     ax.yaxis.grid(color='gray', alpha=0.2, zorder=2)
 
     ax.set_ylabel(ylabel)
-    ax.set_ylim(0, 1)
+    # ax.set_ylim(-1, 1.1)
     ax.tick_params(size=0)
-    ax.set_title('Fit parameters for exp 2')
+
+    ax.set_title(title)
 
     xlabels = []
     xticks = []
@@ -46,6 +74,7 @@ def bar_plot_model_comparison(data, data_scatter, ylabel, title=None):
         stds = [model['mean_std'][1][k] for k in x]
 
         inds = [ind[i] + j * width for j in range(len(means))]
+
         xticks += inds
 
         rects = ax.bar(
@@ -74,17 +103,21 @@ def bar_plot_model_comparison(data, data_scatter, ylabel, title=None):
     ax.set_xticks(xticks)
 
     for i in range(len(xlabels)):
-        if xlabels[i] in ('q', 'log'):
-            continue
-        if xlabels[i][:-1] in 'alpha':
+        if xlabels[i] == 'log':
+            xlabels[i] = 'norm LL'
+        elif xlabels[i] == 'q':
+            pass
+        elif xlabels[i][:-1] in 'alpha':
             xlabels[i] = f"$\\{xlabels[i]}$".replace("0", "-").replace("1", "+")
-        elif xlabels[i] in ('phi', 'beta'):
-            xlabels[i] = f"$\\{xlabels[i]}$"
+        elif xlabels[i] == 'phi':
+            xlabels[i] = f"norm $\\{xlabels[i]}$"
+        elif xlabels[i] == 'beta':
+            xlabels[i] = "$1/\\beta$"
 
     ax.set_xticklabels(xlabels)
     ax.legend()
-    # xmin, xmax = ax.get_xlim()
-    # ax.hlines(0, xmin=xmin, xmax=xmax, lw=0.8)
+    xmin, xmax = ax.get_xlim()
+    ax.hlines(0, xmin=xmin, xmax=xmax, lw=0.8)
     plt.show()
 
 

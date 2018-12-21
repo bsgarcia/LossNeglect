@@ -5,7 +5,7 @@ import warnings
 warnings.filterwarnings('error')
 
 
-class QLearningAgent:
+class QLearning:
 
     """
     Basic QLearning model
@@ -14,14 +14,18 @@ class QLearningAgent:
     def __init__(self, alpha, beta, t_max, n_options, n_conds, **kwargs):
 
         self.alpha = alpha
+
+        if alpha is None:
+            self.alpha = np.array([kwargs['alpha0'], kwargs['alpha1']])
+
         self.beta = beta
 
-        self.q = np.zeros((t_max, n_options, n_conds), dtype=float)
+        self.q = np.zeros((n_options, n_conds), dtype=float)
         self.pe = np.zeros((t_max, n_options, n_conds), dtype=float)
         self.p_softmax = np.zeros((t_max, n_options, n_conds), dtype=float)
 
         self.choices = np.zeros(t_max, dtype=int)
-        self.rewards = np.zeros(t_max, dtype=int)
+        self.rewards = np.zeros(t_max, dtype=float)
 
     @property
     def memory(self):
@@ -37,26 +41,26 @@ class QLearningAgent:
 
         self.choices[t] = choice
         self.rewards[t] = reward
-        self.pe[t, choice, cond] = reward - self.q[t, choice, cond]
+        self.pe[t, choice, cond] = reward - self.q[choice, cond]
 
-        self.p_softmax[t, :, cond] = self.softmax(t, cond)
+        self.p_softmax[t, :, cond] = self.softmax(cond, t=t)
 
-    def choice(self, t, cond):
-        return np.random.choice([0, 1], p=self.softmax(t, cond))
+    def choice(self, cond, t=None):
+        return np.random.choice([0, 1], p=self.softmax(cond, t=t))
 
-    def learn(self, choice, t, cond):
-        self.q[t + 1, choice, cond] = self.q[t, choice, cond] + self.alpha * self.pe[t, choice, cond]
+    def learn(self, t, choice, cond):
+        self.q[choice, cond] += self.alpha * self.pe[t, choice, cond]
 
-    def softmax(self, t, cond):
-        # m = max(self.q[t, :, cond] * self.beta)
+    def softmax(self, cond, **kwargs):
+        m = max(self.q[:, cond] * self.beta)
         return np.exp(
-            self.beta * self.q[t, :, cond]
+            self.beta * self.q[:, cond] - m
         ) / np.sum(np.exp(
-            self.beta * self.q[t, :, cond]
+            self.beta * self.q[:, cond] - m
         ))
 
 
-class AsymmetricQLearningAgent(QLearningAgent):
+class AsymmetricQLearning(QLearning):
 
     """
     Qlearning model using
@@ -70,11 +74,10 @@ class AsymmetricQLearningAgent(QLearningAgent):
         super().__init__(**kwargs)
 
     def learn(self, choice, t, cond):
-        self.q[t + 1, choice, cond] = \
-            self.q[t, choice, cond] + self.alpha[int(self.pe[t, choice, cond] > 0)] * self.pe[t, choice, cond]
+        self.q[choice, cond] += self.alpha[int(self.pe[t, choice, cond] > 0)] * self.pe[t, choice, cond]
 
 
-class PerseverationQLearningAgent(QLearningAgent):
+class PerseverationQLearning(QLearning):
 
     """
     Basic Qlearning model
@@ -88,22 +91,22 @@ class PerseverationQLearningAgent(QLearningAgent):
         super().__init__(**kwargs)
         self.phi = kwargs["phi"]
 
-    def softmax(self, t, cond):
+    def softmax(self, cond, t=None):
 
         # if t == 0 then we use the first implemented
         # softmax because no choice has been made
         if t == 0:
-            return super().softmax(t, cond)
+            return super().softmax(cond, t=t)
 
         # else get last choice
         c = self.choices[t - 1]
 
-        m = max(self.beta * self.q[t, :, cond])
+        m = max(self.beta * self.q[:, cond])
 
         # Qvalue for last option chosen (+ phi)
-        q1 = self.beta * self.q[t, c, cond] + self.phi - m
+        q1 = self.beta * self.q[c, cond] + self.phi - m
         # Qvalue for the other option
-        q2 = self.beta * self.q[t, int(not c), cond] - m
+        q2 = self.beta * self.q[int(not c), cond] - m
 
         # sort depending on value of last choice
         ordered = np.array([q1, q2]) if c == 0 else np.array([q2, q1])
@@ -111,7 +114,7 @@ class PerseverationQLearningAgent(QLearningAgent):
         return np.exp(ordered) / np.sum(np.exp(ordered))
 
 
-class PriorQLearningAgent(QLearningAgent):
+class PriorQLearning(QLearning):
 
     """
     Basic qlearning with initially biased qvalues
@@ -120,13 +123,25 @@ class PriorQLearningAgent(QLearningAgent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.q[0, :, :] = kwargs['q']
+        self.q[:, :] = kwargs['q']
 
 
-class FullQLearningAgent(
-    PriorQLearningAgent,
-    PerseverationQLearningAgent,
-    AsymmetricQLearningAgent,
+class AsymmetricPriorQLearning(AsymmetricQLearning):
+
+    """
+    Asymmetric with initially biased qvalues
+
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.q[:, :] = kwargs['q']
+
+
+class FullQLearning(
+    PriorQLearning,
+    PerseverationQLearning,
+    AsymmetricQLearning,
 ):
     pass
 

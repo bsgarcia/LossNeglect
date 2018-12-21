@@ -1,20 +1,122 @@
 import pickle
 import numpy as np
 from analysis import graph
-import scipy.stats as sp
+import scipy.stats
 from fit.parameters import params
 import os
 
 
-def load(fname):
-    with open(fname, 'rb') as f:
-        return pickle.load(f)
+def compute_aic_bic(ll, n_obs, n_params):
+    global eng
+    aic, bic = eng.aicbic(ll, n_params, n_obs, nargout=2)
+    return aic[0], bic[0]
 
 
-def params_model_comparisons(experiment_id=2):
+def model_selection_recovery(experiment_id='_full', n_obs=96):
+    global eng
+    import matlab.engine
+    import matlab
 
-    data = [load(f'fit/data/experiment{experiment_id}_fit/{fname}')
+    eng = matlab.engine.start_matlab()
+
+    for condition in ('status_quo_1', 'status_quo_2', 'risk'):
+
+        data = regroup_by_model(experiment_id, condition='risk')
+        n_obs = 4 * 48
+        n_subjects = len(data['QLearning']['log'])
+
+        new_data = {}
+
+        for model in data.keys():
+
+            for model in data.keys():
+
+                ll = matlab.double([-i for i in data[model].pop('log')])
+                n_obs_vector = matlab.double([n_obs, ] * n_subjects)
+                n_params = matlab.double([int(len(data[model].keys())), ] * n_subjects)
+
+                aic, bic = compute_aic_bic(
+                    ll=ll,
+                    n_obs=n_obs_vector,
+                    n_params=n_params
+                )
+
+                new_data[model] = {'mean_std': ({model: np.mean(bic)}, {model: scipy.stats.sem(bic)})}
+
+            graph.bar_plot_model_comparison(data=new_data, data_scatter=None, ylabel='value', title=f'BIC exp={experiment_id}, condition={condition}')
+
+
+def single_model_selection(experiment_id='_full', condition=''):
+    global eng
+    import matlab.engine
+    import matlab
+
+    eng = matlab.engine.start_matlab()
+
+    data = regroup_by_model(experiment_id, condition)
+    n_obs = 4 * 48
+    n_subjects = len(data['QLearning']['log'])
+
+    new_data = {}
+
+    for model in data.keys():
+
+        ll = matlab.double([-i for i in data[model].pop('log')])
+        n_obs_vector = matlab.double([n_obs, ] * n_subjects)
+        n_params = matlab.double([int(len(data[model].keys())), ] * n_subjects)
+
+        aic, bic = compute_aic_bic(
+            ll=ll,
+            n_obs=n_obs_vector,
+            n_params=n_params
+        )
+
+        new_data[model] = {'mean_std': ({model: np.mean(bic)}, {model: scipy.stats.sem(bic)})}
+
+    graph.bar_plot_model_comparison(data=new_data, data_scatter=None, ylabel='value', title=f'BIC exp={experiment_id}, condition={condition}')
+
+
+def params_model_comparisons(experiment_id='_full'):
+
+    data = regroup_by_model(experiment_id=experiment_id, condition='')
+
+    for model in data.keys():
+
+        new_data_model = {}
+
+        for k in data[model].keys():
+            if k == 'beta':
+                new_data_model[k] = 1/np.asarray(data[model][k])
+            elif k in ('log', 'phi'):
+                new_data_model[k] = np.asarray(data[model][k]) * 1/max(data[model][k])
+            else:
+                new_data_model[k] = data[model][k]
+
+        mean = {k: np.mean(v) for k, v in new_data_model.items()}
+        std = {k: scipy.stats.sem(v) for k, v in new_data_model.items()}
+        data[model] = {'scatter': None, 'mean_std': (mean, std)}
+
+    graph.bar_plot_model_comparison(data=data, data_scatter=None, ylabel='value')
+
+
+def run():
+
+    single_model_selection()
+    params_model_comparisons()
+
+
+# ------------------------------------------------------- Utils---------------------------------------------- # 
+
+
+def regroup_by_model(experiment_id='_full', condition=""):
+
+    if not condition:
+         data = [load(f'fit/data/experiment{experiment_id}_fit/{fname}')
             for fname in os.listdir(f'fit/data/experiment{experiment_id}_fit') if fname[-1] == "p"]
+
+    else:
+        data = [load(f'fit/data/experiment{experiment_id}_{condition}_fit/{fname}')
+            for fname in os.listdir(f'fit/data/experiment{experiment_id}_{condition}_fit') if fname[-1] == "p"]
 
     models = params['cognitive_params'].keys()
 
@@ -30,129 +132,34 @@ def params_model_comparisons(experiment_id=2):
                 new_data_model[f'{k}0'] = []
                 new_data_model[f'{k}1'] = []
                 continue
+            else:
+                new_data_model[k] = []
 
-            new_data_model[k] = []
         new_data_model['log'] = []
+
         for d in data:
             for k in new_data_model.keys():
                 new_data_model[k].append(d[model][k])
 
-        for k, v in new_data_model.items():
-            if k in ('beta', 'phi', 'log'):
-                new_data_model[k] = np.asarray(new_data_model[k]) * 1/max(new_data_model[k])
+        new_data[model] = new_data_model
 
+    return new_data
+
+
+def compute_mean_for_each_model(experiment_id):
+    data = regroup_by_model(experiment_id=experiment_id)
+    for model in data.keys():
+        new_data_model = {}
+        for k in data[model].keys():
+            new_data_model[k] = data[model][k]
         mean = {k: np.mean(v) for k, v in new_data_model.items()}
-        std = {k: sp.sem(v) for k, v in new_data_model.items()}
-        new_data[model] = {'scatter': new_data_model, 'mean_std': (mean, std)}
-
-    graph.bar_plot_model_comparison(data=new_data, data_scatter=None, ylabel='value')
+        data[model] = mean
+    return data
 
 
-def reward_model_comparison():
-
-    # size = (3 conditions, 3 models, 2 values (mean and std))
-    data = []
-
-    for cond in ('risk_positive', 'risk_negative', 'risk_neutral'):
-
-        one_cond_data = []
-
-        d = load(f'data/data_{cond}.p')
-        t_max = d['params']['t_max']
-        n_agents = d['params']['n_agents']
-        models = 'QLearningAgent', 'AsymmetricQLearningAgent', 'PerseverationQLearningAgent'
-
-        new_data = np.zeros(n_agents)
-
-        for model in models:
-
-            for a in range(n_agents):
-
-                new_data[a] = np.sum(d['results'][model]['rewards'][a, :] == 1) / t_max
-
-            # add mean and std for a model in one condition
-            one_cond_data.append([np.mean(new_data), np.std(new_data)])
-
-        data.append(one_cond_data)
-
-    graph.reward_model_comparison(data)
-
-
-def correct_choice_comparison():
-
-    # size = (3 conditions, 3 models, t_max * 2 values (mean and std))
-    data = []
-
-    for cond in ('risk_positive', 'risk_negative', 'risk_neutral'):
-
-        one_cond_data = []
-
-        d = load(f'data/data_{cond}.p')
-        t_max = d['params']['t_max']
-        models = 'QLearningAgent', 'AsymmetricQLearningAgent', 'PerseverationQLearningAgent'
-
-        t_when_reversal = d['params']['t_when_reversal_occurs']
-
-        for i, model in enumerate(models):
-
-            one_model_data = []
-
-            for t in range(t_max):
-
-                mean = np.mean(d['results'][model]['correct_choices'][:, t])
-                std = sp.sem(d['results'][model]['correct_choices'][:, t])
-
-                # add mean and std for a model in one condition
-                one_model_data.append([mean, std])
-
-            one_cond_data.append(one_model_data)
-
-        data.append(one_cond_data)
-
-    graph.correct_choice_comparison(data, t_when_reversal=t_when_reversal, ylabel='Correct Choice')
-
-
-def single_choice_comparison():
-
-    # size = (3 conditions, 3 models, t_max * 2 values (mean and std))
-    data = []
-
-    for cond in ('risk_positive', 'risk_negative', 'risk_neutral'):
-
-        one_cond_data = []
-
-        d = load(f'data/data_{cond}.p')
-        t_max = d['params']['t_max']
-        models = 'QLearningAgent', 'AsymmetricQLearningAgent', 'PerseverationQLearningAgent'
-
-        t_when_reversal = d['params']['t_when_reversal_occurs']
-
-        for i, model in enumerate(models):
-
-            one_model_data = []
-
-            for t in range(t_max):
-
-                mean = np.mean(d['results'][model]['choices'][:, t] == 1)
-                std = sp.sem(d['results'][model]['choices'][:, t] == 1)
-
-                # add mean and std for a model in one condition
-                one_model_data.append([mean, std])
-
-            one_cond_data.append(one_model_data)
-
-        data.append(one_cond_data)
-
-    graph.correct_choice_comparison(data, t_when_reversal=t_when_reversal, ylabel='Chose option B')
-
-
-def run():
-
-    # single_choice_comparison()
-    # correct_choice_comparison()
-    # reward_model_comparison()
-    params_model_comparisons()
-
+def load(fname):
+    with open(fname, 'rb') as f:
+        return pickle.load(f)
 
 if __name__ == '__main__':
     exit('Please run the main.py script.')

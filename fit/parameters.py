@@ -8,31 +8,37 @@ params = {
 
     'cognitive_params': {
 
-        'QLearningAgent': {
+        'QLearning': {
             'alpha': 0,
             'beta': 0,
 
         },
 
-        'AsymmetricQLearningAgent': {
+        'AsymmetricQLearning': {
             # alpha for [losses, gains]
             'alpha': np.array([0, 0]),
             'beta': 0,
         },
 
-        'PerseverationQLearningAgent': {
+        'PerseverationQLearning': {
             'alpha': 0.7,
             'beta': 100,
             'phi': 0.8,
         },
 
-        'PriorQLearningAgent': {
+        'PriorQLearning': {
             'alpha': 0,
             'beta': 0,
             'q': 0
         },
 
-        'FullQLearningAgent': {
+        'AsymmetricPriorQLearning': {
+            'alpha': np.array([0, 0]),
+            'beta': 0,
+            'q': 0
+        },
+
+        'FullQLearning': {
             'alpha': np.array([0, 0]),
             'beta': 0,
             'phi': 0,
