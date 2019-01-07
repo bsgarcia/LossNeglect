@@ -1,6 +1,5 @@
 #!/usr/bin/python3.6
 import numpy as np
-import pickle
 
 from simulation.models import (QLearning,
                                AsymmetricQLearning,
@@ -102,7 +101,7 @@ class Environment:
 
             data.update(d)
 
-        self.save(data)
+        return data
 
     def reversal(self):
         self.p = self.p[::-1]
@@ -118,17 +117,6 @@ class Environment:
             [0, 1],
             p=self.p[choice]
         )]
-
-    def save(self, results):
-        import os.path
-
-        path = f'simulation/data/experiment{self.experiment_id}_{self.condition}'
-
-        if not os.path.exists(path):
-            os.mkdir(path=path)
-
-        with open(f'{path}/{self.subject_id}.p', 'wb') as f:
-            pickle.dump(obj=results, file=f)
 
 
 if __name__ == '__main__':

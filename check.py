@@ -15,7 +15,7 @@ def loadmat(file_name):
 
 def main():
 
-    pooled = load('fit/data/pooled/experiment2.p')
+    pooled = load('fit/data/pooled/2.p')
 
     ind = [
         loadmat(f'fit/data/experiment2/{fname}')['data'][0][0]

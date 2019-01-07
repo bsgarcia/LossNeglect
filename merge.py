@@ -19,8 +19,8 @@ def save(obj, fname):
 
 def main():
 
-    d1 = load('experiment1.p')
-    d2 = load('experiment2.p')
+    d1 = load('1.p')
+    d2 = load('2.p')
 
     new = [j for i, j in sorted(d1.items())]
 
@@ -28,6 +28,6 @@ def main():
         v[:, 6] = v[:, 4]
         new += [v, ]
 
-    pickle.dump(obj=new, file=open('fit/data/pooled/experiment_full.p', 'wb'))
+    pickle.dump(obj=new, file=open('fit/data/pooled/full.p', 'wb'))
 
 main()

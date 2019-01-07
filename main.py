@@ -22,6 +22,7 @@ from simulation.models import (
     FullQLearning)
 import multiprocessing as ml
 import mail
+import fit.data
 
 import warnings
 
@@ -114,45 +115,19 @@ class Globals:
         full_params
     ]
 
-    fit = False
+    reg_fit = False
     refit = True
     fit_agents = False
     fit_subjects = True
 
-    experiment_id = 2
+    assertion_error = 'Only one parameter among {} and {} can be true.'
+    assert sum([reg_fit, refit]) == 1, assertion_error.format('reg_fit', 'refit')
+    assert sum([fit_agents, fit_subjects]) == 1, assertion_error.format('fit_agents', 'fit_subjects')
+
+    experiment_id = 'full'
     fit_condition = ''
 
-    if fit:
-
-        if fit_agents:
-            data_path = os.path.abspath(f'simulation/data/experiment{experiment_id}{fit_condition}/')
-            save_path = os.path.abspath(f'fit/data/experiment{experiment_id}{fit_condition}_fit/')
-
-        else:
-            data_path = os.path.abspath(f'fit/data/experiment{experiment_id}/')
-            save_path = os.path.abspath(f'fit/data/experiment{experiment_id}_fit/')
-
-        if not os.path.exists(save_path):
-            os.mkdir(save_path)
-
-        file = os.path.abspath(f'fit/data/pooled/experiment{experiment_id}.p')
-
-        with open(file, 'rb') as f:
-            data = pickle.load(f)
-
-    else:
-
-        if fit_agents:
-            data_path = os.path.abspath(f'simulation/data/experiment{experiment_id}{fit_condition}/')
-            save_path = os.path.abspath(f'fit/data/experiment{experiment_id}{fit_condition}_refit/')
-        else:
-            data_path = os.path.abspath(f'fit/data/pooled/experiment{experiment_id}/')
-            save_path = os.path.abspath(f'fit/data/experiment{experiment_id}_refit/')
-
-        if not os.path.exists(save_path):
-            os.mkdir(save_path)
-
-        data = load_agent_fit(data_path)
+    data = fit.data.fit()
 
     n_subjects = len(data)
     subject_ids = range(len(data))
@@ -169,17 +144,6 @@ class Globals:
         # 'Diagnostics': 'on'
     }
 
-    @classmethod
-    def load_subject_fit(cls, path):
-        files = [path + f'{fname}' for fname in os.listdir(path) if fname[-1] == 'p']
-        subject_ids = set([int(re.search('(\d+)(?:.p)', f).group(1)) for f in files])
-        data = {}
-        for s_id, file in zip(subject_ids, files):
-            with open(file, 'rb') as f:
-                d = pickle.load(f)
-                data.update({s_id: d})
-        return data
-
 
 def run_fit(x0, optional_args):
     # --------------------------------------------------------------------- #
@@ -194,7 +158,7 @@ def run_fit(x0, optional_args):
             cognitive_params['alpha1']
         ])
     # --------------------------------------------------------------------- #
-    if Globals.fit:
+    if Globals.reg_fit:
         p = params.copy()
         p['data'] = Globals.data[subject_id]
         p['model'] = model_param['model']
@@ -251,8 +215,6 @@ def run_fit_subject(subject_id):
                     optional_args=[subject_id, model_id, fit_model_id]
                 )
 
-        with open(f'{Globals.save_path}/{subject_id}.p', 'wb') as f:
-            pickle.dump(to_save, file=f)
     else:
         to_save = {}
         for model_id, model_params in enumerate(Globals.model_params):
@@ -263,22 +225,20 @@ def run_fit_subject(subject_id):
                 optional_args=[subject_id, model_id]
             )
 
-        with open(f'{Globals.save_path}/{subject_id}.p', 'wb') as f:
-            pickle.dump(to_save, file=f)
-
-    # scipy.io.savemat(mdict=to_save, file_name=f'{Globals.save_path}/{subject_id}.mat')
+    return to_save
 
 
 def fitting():
 
     pyfmincon.opt.start()
 
+    data = []
     for subject_id in tqdm.tqdm(Globals.subject_ids, desc='Optimizing'):
-        run_fit_subject(subject_id)
-    data = load_agent_fit(Globals.save_path)
-    with open(Globals.save_path + '/pooled.p', 'wb') as f:
+        data.append(run_fit_subject(subject_id))
+
+    with open(Globals.save_path, 'wb') as f:
         pickle.dump(file=f, obj=data)
-    # mail.auto_send(job_name='fit_recover', main_file=__name__, attachment=Globals.save_path + '/pooled.p')
+    # mail.auto_send(job_name='fit_recover', main_file=__name__, attachment=Globals.save_path + '/full.p')
     pyfmincon.opt.stop()
 
 
