@@ -88,6 +88,10 @@ def bar_plot_model_comparison(data, data_scatter, ylabel, title=None):
             error_kw=dict(ecolor='black', capsize=4, capthick=1.5, alpha=1, linewidth=1.5, zorder=1)
         )
 
+        for rect, m in zip(rects, means):
+            height = rect.get_height()
+            plt.text(rect.get_x() + rect.get_width() / 2.0, m + m * 8/100, str(m)[:6], ha='center', va='bottom')
+
         # bars.append([rect.get_x() for rect in rects])
     # Add scatter points
     # in order to have an idea of the distribution

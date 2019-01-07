@@ -114,15 +114,23 @@ class Globals:
         full_params
     ]
 
-    fit_subjects = False
-    fit_agents = True
+    fit = False
+    refit = True
+    fit_agents = False
+    fit_subjects = True
 
-    experiment_id = '_full'
-    fit_condition = 'risk'
+    experiment_id = 2
+    fit_condition = ''
 
-    if fit_subjects:
-        data_path = os.path.abspath(f'fit/data/experiment{experiment_id}/')
-        save_path = os.path.abspath(f'fit/data/experiment{experiment_id}_fit/')
+    if fit:
+
+        if fit_agents:
+            data_path = os.path.abspath(f'simulation/data/experiment{experiment_id}{fit_condition}/')
+            save_path = os.path.abspath(f'fit/data/experiment{experiment_id}{fit_condition}_fit/')
+
+        else:
+            data_path = os.path.abspath(f'fit/data/experiment{experiment_id}/')
+            save_path = os.path.abspath(f'fit/data/experiment{experiment_id}_fit/')
 
         if not os.path.exists(save_path):
             os.mkdir(save_path)
@@ -133,8 +141,13 @@ class Globals:
             data = pickle.load(f)
 
     else:
-        data_path = os.path.abspath(f'simulation/data/experiment{experiment_id}_{fit_condition}/')
-        save_path = os.path.abspath(f'fit/data/experiment{experiment_id}_{fit_condition}_fit/')
+
+        if fit_agents:
+            data_path = os.path.abspath(f'simulation/data/experiment{experiment_id}{fit_condition}/')
+            save_path = os.path.abspath(f'fit/data/experiment{experiment_id}{fit_condition}_refit/')
+        else:
+            data_path = os.path.abspath(f'fit/data/pooled/experiment{experiment_id}/')
+            save_path = os.path.abspath(f'fit/data/experiment{experiment_id}_refit/')
 
         if not os.path.exists(save_path):
             os.mkdir(save_path)
@@ -158,7 +171,7 @@ class Globals:
 
     @classmethod
     def load_subject_fit(cls, path):
-        files = [path + f'{fname}' for fname in os.listdir(path) if fname[-1] =='p']
+        files = [path + f'{fname}' for fname in os.listdir(path) if fname[-1] == 'p']
         subject_ids = set([int(re.search('(\d+)(?:.p)', f).group(1)) for f in files])
         data = {}
         for s_id, file in zip(subject_ids, files):
@@ -181,7 +194,7 @@ def run_fit(x0, optional_args):
             cognitive_params['alpha1']
         ])
     # --------------------------------------------------------------------- #
-    if Globals.fit_subjects:
+    if Globals.fit:
         p = params.copy()
         p['data'] = Globals.data[subject_id]
         p['model'] = model_param['model']
@@ -226,7 +239,7 @@ def run_fmincon(f, model_params, options, optional_args):
 
 def run_fit_subject(subject_id):
 
-    if Globals.fit_agents:
+    if Globals.refit:
         to_save = {}
         for model_id, model_params in enumerate(Globals.model_params):
             to_save[model_params['model'].__name__] = {}
@@ -265,7 +278,7 @@ def fitting():
     data = load_agent_fit(Globals.save_path)
     with open(Globals.save_path + '/pooled.p', 'wb') as f:
         pickle.dump(file=f, obj=data)
-    mail.auto_send(job_name='fit_recover', main_file=__name__, attachment=Globals.save_path + '/pooled.p')
+    # mail.auto_send(job_name='fit_recover', main_file=__name__, attachment=Globals.save_path + '/pooled.p')
     pyfmincon.opt.stop()
 
 

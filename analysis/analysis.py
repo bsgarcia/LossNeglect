@@ -57,7 +57,8 @@ def single_model_selection(experiment_id='_full', condition=''):
     n_obs = 4 * 48
     n_subjects = len(data['QLearning']['log'])
 
-    new_data = {}
+    new_data_bic = {}
+    new_data_aic = {}
 
     for model in data.keys():
 
@@ -71,9 +72,11 @@ def single_model_selection(experiment_id='_full', condition=''):
             n_params=n_params
         )
 
-        new_data[model] = {'mean_std': ({model: np.mean(bic)}, {model: scipy.stats.sem(bic)})}
+        new_data_bic[model] = {'mean_std': ({model: np.mean(bic)}, {model: scipy.stats.sem(bic)})}
+        new_data_aic[model] = {'mean_std': ({model: np.mean(aic)}, {model: scipy.stats.sem(aic)})}
 
-    graph.bar_plot_model_comparison(data=new_data, data_scatter=None, ylabel='value', title=f'BIC exp={experiment_id}, condition={condition}')
+    graph.bar_plot_model_comparison(data=new_data_bic, data_scatter=None, ylabel='value', title=f'BIC exp={experiment_id}, condition={condition}')
+    graph.bar_plot_model_comparison(data=new_data_aic, data_scatter=None, ylabel='value', title=f'AIC exp={experiment_id}, condition={condition}')
 
 
 def params_model_comparisons(experiment_id='_full'):
@@ -91,7 +94,7 @@ def params_model_comparisons(experiment_id='_full'):
                 new_data_model[k] = np.asarray(data[model][k]) * 1/max(data[model][k])
             else:
                 new_data_model[k] = data[model][k]
-
+        new_data_model.pop('log')
         mean = {k: np.mean(v) for k, v in new_data_model.items()}
         std = {k: scipy.stats.sem(v) for k, v in new_data_model.items()}
         data[model] = {'scatter': None, 'mean_std': (mean, std)}
@@ -112,7 +115,7 @@ def regroup_by_model(experiment_id='_full', condition=""):
 
     if not condition:
          data = [load(f'fit/data/experiment{experiment_id}_fit/{fname}')
-            for fname in os.listdir(f'fit/data/experiment{experiment_id}_fit') if fname[-1] == "p"]
+            for fname in os.listdir(f'fit/data/experiment{experiment_id}_fit') if fname[-1] == "p" and fname[0].isdigit()]
 
     else:
         data = [load(f'fit/data/experiment{experiment_id}_{condition}_fit/{fname}')
@@ -139,7 +142,10 @@ def regroup_by_model(experiment_id='_full', condition=""):
 
         for d in data:
             for k in new_data_model.keys():
-                new_data_model[k].append(d[model][k])
+                try:
+                    new_data_model[k].append(d[model][k])
+                except:
+                    import pdb; pdb.set_trace()
 
         new_data[model] = new_data_model
 
@@ -160,6 +166,7 @@ def compute_mean_for_each_model(experiment_id):
 def load(fname):
     with open(fname, 'rb') as f:
         return pickle.load(f)
+
 
 if __name__ == '__main__':
     exit('Please run the main.py script.')
