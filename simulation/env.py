@@ -38,12 +38,14 @@ class Environment:
 
         data = {}
 
-        for model in (QLearning,
-                      AsymmetricQLearning,
-                      PerseverationQLearning,
-                      PriorQLearning,
-                      AsymmetricPriorQLearning,
-                      FullQLearning):
+        for model in (
+                    # QLearning,
+                    AsymmetricQLearning,
+                    # PerseverationQLearning,
+                    # PriorQLearning,
+                    # AsymmetricPriorQLearning,
+                    # FullQLearning
+        ):
 
             choices = np.zeros(self.t_max, dtype=int)
             rewards = np.zeros(self.t_max, dtype=int)

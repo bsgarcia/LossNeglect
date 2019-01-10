@@ -11,12 +11,6 @@ function [xopt, fval, exitflag] = optimize(funcname, x0, A, b, ...
         options = optimoptions(options, names{i}, opt_struct.(names{i}));
     end
 
-%
-    % check if gradients provided
-%    if gradients
-%        options = optimoptions(options, 'GradObj', 'on', 'GradConstr', 'on');
-%    end
-
     % run fmincon
     [xopt, fval, exitflag] = fmincon(@obj, x0, A, b, Aeq, beq, lb, ub, nonlcon, options);
     % ---------- Objective Function ------------------

@@ -1,4 +1,109 @@
 import numpy as np
+from simulation.models import QLearning, AsymmetricQLearning, AsymmetricPriorQLearning,\
+    FullQLearning, PerseverationQLearning, PriorQLearning
+import fit.data
+
+
+class Globals:
+    """
+    class used in order to
+    declare global variables
+    accessible from the whole script.
+    """
+
+    # Continuous parameters bounds
+    # --------------------------------------------------------------------- #
+    alpha_bounds = (1/1000, 1)
+    beta_bounds = (1, 1000)
+    phi_bounds = (-10, 10)
+    q_bounds = (-1, 1)
+    q_fixed_bounds = (-1, -1)
+
+    # parameters initial guesses
+    # --------------------------------------------------------------------- #
+    alpha_guess = 0.5
+    beta_guess = 1
+    phi_guess = 0
+    q_guess = 0
+    q_fixed_guess = -1
+
+    qlearning_params = {
+        'model': QLearning,
+        'labels': ['alpha', 'beta', 'log'],
+        'guesses': np.array([alpha_guess, beta_guess]),
+        'bounds': np.array([alpha_bounds, beta_bounds])
+    }
+
+    asymmetric_params = {
+        'model': AsymmetricQLearning,
+        'labels': ['alpha0', 'alpha1', 'beta', 'log'],
+        'guesses': np.array([alpha_guess, alpha_guess, beta_guess]),
+        'bounds': np.array([alpha_bounds, alpha_bounds, beta_bounds])
+    }
+
+    perseveration_params = {
+        'model': PerseverationQLearning,
+        'labels': ['alpha', 'beta', 'phi', 'log'],
+        'guesses': np.array([alpha_guess, beta_guess, phi_guess]),
+        'bounds': np.array([alpha_bounds, beta_bounds, phi_bounds])
+    }
+
+    prior_params = {
+        'model': PriorQLearning,
+        'labels': ['alpha', 'beta', 'q', 'log'],
+        'guesses': np.array([alpha_guess, beta_guess, q_guess]),
+        'bounds': np.array([alpha_bounds, beta_bounds, q_bounds])
+    }
+
+    asymmetric_prior_params = {
+        'model': AsymmetricPriorQLearning,
+        'labels': ['alpha0', 'alpha1', 'beta', 'q', 'log'],
+        'guesses': np.array([alpha_guess, alpha_guess, beta_guess, q_fixed_guess]),
+        'bounds': np.array([alpha_bounds, alpha_bounds, beta_bounds, q_fixed_bounds]),
+    }
+
+    full_params = {
+        'model': FullQLearning,
+        'labels': ['alpha0', 'alpha1', 'beta', 'phi', 'q', 'log'],
+        'guesses': np.array([alpha_guess, alpha_guess, beta_guess, phi_guess, q_guess]),
+        'bounds': np.array([alpha_bounds, alpha_bounds, beta_bounds, phi_bounds, q_bounds])
+    }
+
+    model_params = [
+        qlearning_params,
+        asymmetric_params,
+        perseveration_params,
+        prior_params,
+        asymmetric_prior_params,
+        full_params
+    ]
+
+    reg_fit = False
+    refit = True
+
+    assertion_error = 'Only one parameter among {} and {} can be true.'
+    assert sum([reg_fit, refit]) == 1, assertion_error.format('reg_fit', 'refit')
+
+    experiment_id = 'full'
+    condition = '_status_quo_2'
+
+    data = fit.data.sim(condition=condition)
+
+    #
+    n_subjects = len(data)
+    subject_ids = range(len(data))
+
+    max_evals = 10000
+
+    options = {
+        # 'AlwaysHonorConstraints': 'bounds',
+        'Algorithm': 'interior-point',
+        # 'display': 'iter-detailed',
+        'MaxIter': max_evals,
+        'MaxFunEvals': max_evals,
+        'display': 'off',
+        # 'Diagnostics': 'on'
+    }
 
 
 # common parameters of each condition
@@ -47,18 +152,6 @@ params = {
     }
 }
 
-# common_params.update(
-#     # t when probabilities and rewards are reversed between
-#     # Action A and B
-#     {
-#         't_when_reversal_occurs':
-#             np.arange(
-#                 0,
-#                 common_params['t_max'] + 1,
-#                 common_params['t_max'] // (common_params['n_reversals'] + 1),
-#             )[1:-1]
-#     }
-# )
 
 cond = [
     {

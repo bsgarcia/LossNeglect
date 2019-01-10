@@ -1,18 +1,17 @@
+# import matlab.engine
 import pickle
-import re
 import argparse
 import os
 import numpy as np
 import tqdm
-import scipy.io
-import pyfmincon
+import multiprocessing as ml
 import pyfmincon.opt
 
 import fit.env
 import simulation.env
-from analysis import analysis
 from fit.parameters import params
 import simulation.parameters
+from fit.parameters import Globals
 from simulation.models import (
     QLearning,
     AsymmetricQLearning,
@@ -20,129 +19,12 @@ from simulation.models import (
     PriorQLearning,
     AsymmetricPriorQLearning,
     FullQLearning)
-import multiprocessing as ml
-import mail
 import fit.data
 
 import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=ImportWarning)
-
-
-def load_agent_fit(data_path):
-    files = [data_path + f'/{fname}' for fname in os.listdir(data_path)]
-    subject_ids = [int(re.search('(\d+)(?:.p)', f).group(1)) for f in files]
-    data = {}
-    for s_id, file in zip(subject_ids, files):
-        with open(file, 'rb') as f:
-            d = pickle.load(f)
-            data.update({s_id: d})
-    return data
-
-
-class Globals:
-    """
-    class used in order to
-    declare global variables
-    accessible from the whole script.
-    """
-
-    # Continuous parameters bounds
-    # --------------------------------------------------------------------- #
-    alpha_bounds = (1/1000, 1)
-    beta_bounds = (1, 1000)
-    phi_bounds = (-10, 10)
-    q_bounds = (-1, 1)
-    q_fixed_bounds = (-1, -1)
-
-    # parameters initial guesses
-    # --------------------------------------------------------------------- #
-    alpha_guess = 0.5
-    beta_guess = 1
-    phi_guess = 0
-    q_guess = 0
-    q_fixed_guess = -1
-
-    qlearning_params = {
-        'model': QLearning,
-        'labels': ['alpha', 'beta', 'log'],
-        'guesses': np.array([alpha_guess, beta_guess]),
-        'bounds': np.array([alpha_bounds, beta_bounds])
-    }
-
-    asymmetric_params = {
-        'model': AsymmetricQLearning,
-        'labels': ['alpha0', 'alpha1', 'beta', 'log'],
-        'guesses': np.array([alpha_guess, alpha_guess, beta_guess]),
-        'bounds': np.array([alpha_bounds, alpha_bounds, beta_bounds])
-    }
-
-    perseveration_params = {
-        'model': PerseverationQLearning,
-        'labels': ['alpha', 'beta', 'phi', 'log'],
-        'guesses': np.array([alpha_guess, beta_guess, phi_guess]),
-        'bounds': np.array([alpha_bounds, beta_bounds, phi_bounds])
-    }
-
-    prior_params = {
-        'model': PriorQLearning,
-        'labels': ['alpha', 'beta', 'q', 'log'],
-        'guesses': np.array([alpha_guess, beta_guess, q_guess]),
-        'bounds': np.array([alpha_bounds, beta_bounds, q_bounds])
-    }
-
-    asymmetric_prior_params = {
-        'model': AsymmetricPriorQLearning,
-        'labels': ['alpha0', 'alpha1', 'beta', 'q', 'log'],
-        'guesses': np.array([alpha_guess, alpha_guess, beta_guess, q_fixed_guess]),
-        'bounds': np.array([alpha_bounds, alpha_bounds, beta_bounds, q_fixed_bounds]),
-    }
-
-    full_params = {
-        'model': FullQLearning,
-        'labels': ['alpha0', 'alpha1', 'beta', 'phi', 'q', 'log'],
-        'guesses': np.array([alpha_guess, alpha_guess, beta_guess, phi_guess, q_guess]),
-        'bounds': np.array([alpha_bounds, alpha_bounds, beta_bounds, phi_bounds, q_bounds])
-    }
-
-    model_params = [
-        qlearning_params,
-        asymmetric_params,
-        perseveration_params,
-        prior_params,
-        asymmetric_prior_params,
-        full_params
-    ]
-
-    reg_fit = False
-    refit = True
-    fit_agents = False
-    fit_subjects = True
-
-    assertion_error = 'Only one parameter among {} and {} can be true.'
-    assert sum([reg_fit, refit]) == 1, assertion_error.format('reg_fit', 'refit')
-    assert sum([fit_agents, fit_subjects]) == 1, assertion_error.format('fit_agents', 'fit_subjects')
-
-    experiment_id = 'full'
-    fit_condition = ''
-
-    data = fit.data.fit()
-
-    n_subjects = len(data)
-    subject_ids = range(len(data))
-
-    max_evals = 10000
-
-    options = {
-        # 'AlwaysHonorConstraints': 'bounds',
-        'Algorithm': 'interior-point',
-        # 'display': 'iter-detailed',
-        'MaxIter': max_evals,
-        'MaxFunEvals': max_evals,
-        'display': 'off',
-        # 'Diagnostics': 'on'
-    }
 
 
 def run_fit(x0, optional_args):
@@ -186,7 +68,7 @@ def run_fit(x0, optional_args):
     return neg_log_likelihood
 
 
-def run_fmincon(f, model_params, options, optional_args):
+def run_fmincon(f, model_params, options, optional_args, eng=None):
 
     # ---- set options ------- # 
     x0 = model_params['guesses']
@@ -195,7 +77,7 @@ def run_fmincon(f, model_params, options, optional_args):
 
     # Minimize
     xopt, fval, exitflag = pyfmincon.opt.fmincon(f, x0=x0, lb=lb, ub=ub,
-                                       options=options, optional_args=optional_args)
+                                                 options=options, optional_args=optional_args, engine=eng)
 
     values = [item for sublist in [xopt, [fval]] for item in sublist]
     return {k: v for k, v in zip(model_params['labels'], values)}
@@ -203,49 +85,77 @@ def run_fmincon(f, model_params, options, optional_args):
 
 def run_fit_subject(subject_id):
 
+    eng = pyfmincon.opt.new_engine()
+
     if Globals.refit:
+
         to_save = {}
+
+        # We fit model_id
         for model_id, model_params in enumerate(Globals.model_params):
+
             to_save[model_params['model'].__name__] = {}
+
+            #  On fit_model_id data (produced with the model)
             for fit_model_id, fit_model_params in enumerate(Globals.model_params):
-                to_save[model_params['model'].__name__][fit_model_params['model'].__name__] = run_fmincon(
-                    f='main.run_fit',
-                    model_params=model_params,
-                    options=Globals.options,
-                    optional_args=[subject_id, model_id, fit_model_id]
-                )
+
+                to_save[model_params['model'].__name__][fit_model_params['model'].__name__] = \
+                    run_fmincon(
+                        f='main.run_fit',
+                        model_params=model_params,
+                        options=Globals.options,
+                        optional_args=[subject_id, model_id, fit_model_id],
+                        eng=eng
+                    )
 
     else:
+
         to_save = {}
         for model_id, model_params in enumerate(Globals.model_params):
             to_save[model_params['model'].__name__] = run_fmincon(
                 f='main.run_fit',
                 model_params=model_params,
                 options=Globals.options,
-                optional_args=[subject_id, model_id]
+                optional_args=[subject_id, model_id],
+                eng=eng
             )
 
+    eng.quit()
     return to_save
 
 
 def fitting():
 
-    pyfmincon.opt.start()
+    folder = 'fit_data' if Globals.reg_fit else 'refit_data'
+
+    save_path = os.path.abspath(
+        f'fit/data/pooled/{folder}/{Globals.experiment_id}{Globals.condition}.p'
+    )
 
     data = []
-    for subject_id in tqdm.tqdm(Globals.subject_ids, desc='Optimizing'):
-        data.append(run_fit_subject(subject_id))
+    pl = ml.Pool(processes=8)
+    for res in tqdm.tqdm(
+            pl.imap(func=run_fit_subject, iterable=Globals.subject_ids),
+            total=Globals.n_subjects
+    ):
+        data.append(res)
 
-    with open(Globals.save_path, 'wb') as f:
+    # else:
+    #
+    #     pyfmincon.opt.start()
+    #     for subject_id in tqdm.tqdm(Globals.subject_ids):
+    #         data.append(run_fit_subject(subject_id, new_eng=False))
+    #     pyfmincon.opt.stop()
+
+    with open(save_path, 'wb') as f:
         pickle.dump(file=f, obj=data)
-    # mail.auto_send(job_name='fit_recover', main_file=__name__, attachment=Globals.save_path + '/full.p')
-    pyfmincon.opt.stop()
 
 
 def run_simulations():
 
-    #  --------------------- Run Status quo 2 ----------------------------------- # 
-    data = Globals.load_subject_fit(f'fit/data/experiment{Globals.experiment_id}_fit/')
+    #  --------------------- Run Status quo 1 ----------------------------------- # 
+    data = fit.data.fit()
+    new_data = []
     p = simulation.parameters.params.copy()
     cond = simulation.parameters.cond.copy()
     p['t_max'] = cond['status_quo']['t_max']
@@ -263,9 +173,13 @@ def run_simulations():
 
         env = simulation.env.Environment(**p)
 
-        env.run()
+        new_data.append(env.run())
+
+    with open(f'fit/data/pooled/sim_data/{Globals.experiment_id}status_quo_1.p', 'wb') as f:
+        pickle.dump(new_data, file=f)
 
     #  --------------------- Run Status quo 2 ----------------------------------- # 
+    new_data = []
     p = simulation.parameters.params.copy()
     cond = simulation.parameters.cond.copy()
     p['t_max'] = cond['status_quo']['t_max']
@@ -282,9 +196,13 @@ def run_simulations():
         p['subject_id'] = subject_id
 
         env = simulation.env.Environment(**p)
-        env.run()
+        new_data.append(env.run())
+
+    with open(f'fit/data/pooled/sim_data/{Globals.experiment_id}status_quo_2.p', 'wb') as f:
+        pickle.dump(new_data, file=f)
 
     #  --------------------- Run risk ----------------------------------- # 
+    new_data = []
     p = simulation.parameters.params.copy()
     cond = simulation.parameters.cond.copy()
     p['t_max'] = cond['risk']['t_max']
@@ -299,13 +217,31 @@ def run_simulations():
         p['subject_id'] = subject_id
 
         env = simulation.env.Environment(**p)
-        env.run()
+        new_data.append(env.run())
+
+    with open(f'fit/data/pooled/sim_data/{Globals.experiment_id}risk.p', 'wb') as f:
+        pickle.dump(new_data, file=f)
 
 
 def run_analysis():
+    from analysis import analysis
     tqdm.tqdm.write('Generating graphs...')
-
-    analysis.run()
+    # --------------------------------------------------------------------------------------------- #
+    first_fit = fit.data.fit()
+    # analysis.params_model_comparisons(first_fit)
+    analysis.single_model_selection(first_fit, title='')
+    # --------------------------------------------------------------------------------------------- #
+    refit_risk = fit.data.refit(condition='_risk')
+    analysis.model_selection_recovery(refit_risk, title='Risky condition')
+    # --------------------------------------------------------------------------------------------- #
+    refit_status_quo_1 = fit.data.refit(condition='_status_quo_1')
+    analysis.model_selection_recovery(refit_status_quo_1,
+                                      title='Status quo "either 1/2/3 reversals" condition')
+    # --------------------------------------------------------------------------------------------- #
+    refit_status_quo_2 = fit.data.refit(condition='_status_quo_2')
+    analysis.model_selection_recovery(
+        refit_status_quo_2,
+        title='Status quo "1 reversal either at the beginning, the middle, the end" condition')
 
 
 if __name__ == '__main__':

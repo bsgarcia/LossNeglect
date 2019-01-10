@@ -4,9 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gd
 
 
-def model_recovery(data, models, title):
-    fig, ax = plt.subplots()
-
+def model_recovery(data, models, title, ylabel):
+    fig, ax = plt.subplots(figsize=(10, 8))
     im = ax.imshow(data)
 
     # We want to show all ticks...
@@ -16,6 +15,10 @@ def model_recovery(data, models, title):
     ax.set_xticklabels(models)
     ax.set_yticklabels(models)
 
+    # Create colorbar
+    cbar = ax.figure.colorbar(im, ax=ax)
+    cbar.ax.set_ylabel(ylabel, rotation=-90, va="bottom")
+
     # Rotate the tick labels and set their alignment.
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
              rotation_mode="anchor")
@@ -23,8 +26,9 @@ def model_recovery(data, models, title):
     # Loop over data dimensions and create text annotations.
     for i in range(len(models)):
         for j in range(len(models)):
-            text = ax.text(j, i, data[i, j],
-                           ha="center", va="center", color="w")
+            color = "grey" if data[j, i] >= np.max(data) - 5 else 'white'
+            text = ax.text(i, j, int(data[j, i]),
+                           ha="center", va="center", color=color)
 
     ax.set_title(title)
     fig.tight_layout()
@@ -33,11 +37,7 @@ def model_recovery(data, models, title):
 
 def bar_plot_model_comparison(data, data_scatter, ylabel, title=None):
 
-    # get x of bars for scatters
-    bars = []
-
     # plt.style.use('default')
-
     # params
     ind = np.arange(len(data))
     width = 0.18
@@ -90,7 +90,7 @@ def bar_plot_model_comparison(data, data_scatter, ylabel, title=None):
 
         for rect, m in zip(rects, means):
             height = rect.get_height()
-            plt.text(rect.get_x() + rect.get_width() / 2.0, m + m * 8/100, str(m)[:6], ha='center', va='bottom')
+            plt.text(rect.get_x() + rect.get_width() / 2.0, m + m * 5/100, str(m)[:6], ha='center', va='bottom')
 
         # bars.append([rect.get_x() for rect in rects])
     # Add scatter points

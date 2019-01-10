@@ -21,7 +21,7 @@ class Environment:
         self.map = {
             1: {'choices': 6, 'conds': 2, 'rewards': 7},
             2: {'choices': 4, 'conds': 2, 'rewards': 7},
-            '_full': {'choices': 6, 'conds': 2, 'rewards': 7},
+            'full': {'choices': 6, 'conds': 2, 'rewards': 7},
             # 3: {'choice'}
         }
 

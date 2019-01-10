@@ -3,7 +3,9 @@ import numpy as np
 from analysis import graph
 import scipy.stats
 from fit.parameters import params
-import os
+import matlab.engine
+
+eng = matlab.engine.start_matlab()
 
 
 def compute_aic_bic(ll, n_obs, n_params):
@@ -11,56 +13,93 @@ def compute_aic_bic(ll, n_obs, n_params):
     aic, bic = eng.aicbic(ll, n_params, n_obs, nargout=2)
     return aic[0], bic[0]
 
+# def compute_best_model(data):
 
-def model_selection_recovery(experiment_id='_full', n_obs=96):
+
+def model_selection_recovery(data, title):
     global eng
-    import matlab.engine
     import matlab
 
-    eng = matlab.engine.start_matlab()
-
-    for condition in ('status_quo_1', 'status_quo_2', 'risk'):
-
-        data = regroup_by_model(experiment_id, condition='risk')
-        n_obs = 4 * 48
-        n_subjects = len(data['QLearning']['log'])
-
-        new_data = {}
-
-        for model in data.keys():
-
-            for model in data.keys():
-
-                ll = matlab.double([-i for i in data[model].pop('log')])
-                n_obs_vector = matlab.double([n_obs, ] * n_subjects)
-                n_params = matlab.double([int(len(data[model].keys())), ] * n_subjects)
-
-                aic, bic = compute_aic_bic(
-                    ll=ll,
-                    n_obs=n_obs_vector,
-                    n_params=n_params
-                )
-
-                new_data[model] = {'mean_std': ({model: np.mean(bic)}, {model: scipy.stats.sem(bic)})}
-
-            graph.bar_plot_model_comparison(data=new_data, data_scatter=None, ylabel='value', title=f'BIC exp={experiment_id}, condition={condition}')
-
-
-def single_model_selection(experiment_id='_full', condition=''):
-    global eng
-    import matlab.engine
-    import matlab
-
-    eng = matlab.engine.start_matlab()
-
-    data = regroup_by_model(experiment_id, condition)
+    data = regroup_by_model(data, recovery=True)
     n_obs = 4 * 48
+    n_subjects = len(data['QLearning']['AsymmetricQLearning']['log'])
+    assert n_subjects == 86
+    n_models = len(data)
+
+    new_data_bic = np.zeros((n_models, n_models), dtype=np.ndarray)
+    new_data_aic = np.zeros((n_models, n_models), dtype=np.ndarray)
+    models = list(enumerate(data.keys()))
+
+    for i, fitted_model in models:
+        for j, data_model in models:
+
+            ll = matlab.double(
+                [-i for i in data[fitted_model][data_model].pop('log')]
+            )
+            n_obs_vector = matlab.double(
+                [n_obs, ] * n_subjects
+            )
+            n_params = matlab.double(
+                [int(len(data[fitted_model][data_model].keys())), ] * n_subjects
+            )
+
+            aic, bic = compute_aic_bic(
+                ll=ll,
+                n_obs=n_obs_vector,
+                n_params=n_params
+            )
+            new_data_bic[j, i] = bic
+            new_data_aic[j, i] = aic
+
+    bic = np.zeros((n_models, n_models), dtype=float)
+    aic = np.zeros((n_models, n_models), dtype=float)
+
+    for i in range(len(models)):
+        max_bic = new_data_bic[i, :]
+        max_aic = new_data_aic[i, :]
+
+        for subject in range(n_subjects):
+            tempx = []
+            tempy = []
+            for x, y in zip(max_bic, max_aic):
+                tempx.append(x[subject])
+                tempy.append(y[subject])
+            bic[i, np.argmin(tempx)] += 1
+            aic[i, np.argmin(tempy)] += 1
+
+    bic /= n_subjects/100
+    aic /= n_subjects/100
+
+    graph.model_recovery(
+        data=np.round(bic),
+        models=[i[1] for i in models],
+        title=title,
+        ylabel='Percentage "selected as best model" (BIC)'
+    )
+
+    graph.model_recovery(
+        data=np.round(aic),
+        models=[i[1] for i in models],
+        title=title,
+        ylabel='Percentage "selected as best model" (AIC)'
+    )
+
+
+def single_model_selection(data, title):
+    global eng
+    import matlab
+
+    data = regroup_by_model(data)
+    n_obs = 96
     n_subjects = len(data['QLearning']['log'])
+    models = data.keys()
 
     new_data_bic = {}
     new_data_aic = {}
+    new_bic = []
+    new_aic = []
 
-    for model in data.keys():
+    for model in models:
 
         ll = matlab.double([-i for i in data[model].pop('log')])
         n_obs_vector = matlab.double([n_obs, ] * n_subjects)
@@ -72,16 +111,46 @@ def single_model_selection(experiment_id='_full', condition=''):
             n_params=n_params
         )
 
-        new_data_bic[model] = {'mean_std': ({model: np.mean(bic)}, {model: scipy.stats.sem(bic)})}
-        new_data_aic[model] = {'mean_std': ({model: np.mean(aic)}, {model: scipy.stats.sem(aic)})}
+        new_bic.append(bic)
+        new_aic.append(aic)
 
-    graph.bar_plot_model_comparison(data=new_data_bic, data_scatter=None, ylabel='value', title=f'BIC exp={experiment_id}, condition={condition}')
-    graph.bar_plot_model_comparison(data=new_data_aic, data_scatter=None, ylabel='value', title=f'AIC exp={experiment_id}, condition={condition}')
+    bic = np.zeros(len(models))
+    aic = np.zeros(len(models))
+    # sem_bic = np.zeros(len(models))
+    # sem_aic = np.zeros(len(models))
+
+    for subject in range(n_subjects):
+        tempx = []
+        tempy = []
+        for x, y in zip(new_bic, new_aic):
+            tempx.append(x[subject])
+            tempy.append(y[subject])
+
+        assert len(tempx) == len(models)
+        bic[np.argmin(tempx)] += 1
+        aic[np.argmin(tempy)] += 1
+
+    # bic /= n_subjects / 100
+    # aic /= n_subjects / 100
+    #
+    for i, model in enumerate(models):
+        new_data_bic[model] = {'mean_std': ({model: bic[i]}, {model: 0})}
+        new_data_aic[model] = {'mean_std': ({model: aic[i]}, {model: 0})}
+
+    graph.bar_plot_model_comparison(
+        data=new_data_bic, data_scatter=None, title=title,
+        ylabel='Percentage "selected as best model" (BIC)'
+    )
+    graph.bar_plot_model_comparison(
+        data=new_data_aic, data_scatter=None,
+        ylabel='Percentage "selected as best model" (AIC)',
+        title=title
+    )
 
 
-def params_model_comparisons(experiment_id='_full'):
+def params_model_comparisons(data):
 
-    data = regroup_by_model(experiment_id=experiment_id, condition='')
+    data = regroup_by_model(data)
 
     for model in data.keys():
 
@@ -101,59 +170,69 @@ def params_model_comparisons(experiment_id='_full'):
 
     graph.bar_plot_model_comparison(data=data, data_scatter=None, ylabel='value')
 
-
-def run():
-
-    single_model_selection()
-    params_model_comparisons()
-
-
 # ------------------------------------------------------- Utils---------------------------------------------- # 
 
 
-def regroup_by_model(experiment_id='_full', condition=""):
-
-    if not condition:
-         data = [load(f'fit/data/experiment{experiment_id}_fit/{fname}')
-            for fname in os.listdir(f'fit/data/experiment{experiment_id}_fit') if fname[-1] == "p" and fname[0].isdigit()]
-
-    else:
-        data = [load(f'fit/data/experiment{experiment_id}_{condition}_fit/{fname}')
-            for fname in os.listdir(f'fit/data/experiment{experiment_id}_{condition}_fit') if fname[-1] == "p"]
+def regroup_by_model(data, recovery=False):
 
     models = params['cognitive_params'].keys()
-
     new_data = {}
 
-    for model in models:
+    if recovery:
 
-        data_model = params['cognitive_params'][model].copy()
-        new_data_model = {}
+        for fitted_model in data[0].keys():
 
-        for k, v in data_model.items():
-            if isinstance(v, np.ndarray):
-                new_data_model[f'{k}0'] = []
-                new_data_model[f'{k}1'] = []
-                continue
-            else:
-                new_data_model[k] = []
+            new_data[fitted_model] = {}
 
-        new_data_model['log'] = []
+            for data_model in data[0]['QLearning'].keys():
 
-        for d in data:
-            for k in new_data_model.keys():
-                try:
+                params_model = params['cognitive_params'][fitted_model].copy()
+                new_data_model = {}
+                for k, v in params_model.items():
+                    if isinstance(v, np.ndarray):
+                        new_data_model[f'{k}0'] = []
+                        new_data_model[f'{k}1'] = []
+                        continue
+                    else:
+                        new_data_model[k] = []
+
+                new_data_model['log'] = []
+
+                for subject in data:
+                    for k in new_data_model.keys():
+                        new_data_model[k].append(subject[fitted_model][data_model][k])
+
+                new_data[fitted_model][data_model] = new_data_model.copy()
+
+    else:
+
+        for model in models:
+
+            params_model = params['cognitive_params'][model].copy()
+            new_data_model = {}
+
+            for k, v in params_model.items():
+                if isinstance(v, np.ndarray):
+                    new_data_model[f'{k}0'] = []
+                    new_data_model[f'{k}1'] = []
+                    continue
+                else:
+                    new_data_model[k] = []
+
+            new_data_model['log'] = []
+
+            for d in data:
+                for k in new_data_model.keys():
                     new_data_model[k].append(d[model][k])
-                except:
-                    import pdb; pdb.set_trace()
 
-        new_data[model] = new_data_model
+            new_data[model] = new_data_model.copy()
 
     return new_data
+    # pass
 
 
-def compute_mean_for_each_model(experiment_id):
-    data = regroup_by_model(experiment_id=experiment_id)
+def compute_mean_for_each_model(data):
+    data = regroup_by_model(data)
     for model in data.keys():
         new_data_model = {}
         for k in data[model].keys():
